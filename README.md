@@ -1,24 +1,84 @@
 # Solana PDA Analyzer
 
-A comprehensive tool for analyzing Solana Program Derived Addresses (PDAs), tracking transaction patterns, and understanding program behavior on the Solana blockchain.
+A comprehensive, production-ready tool for analyzing Solana Program Derived Addresses (PDAs), tracking transaction patterns, and understanding program behavior on the Solana blockchain. Features real-time analysis, pattern recognition, and beautiful visualization of PDA derivation patterns.
 
 ## Features
 
-- **PDA Analysis**: Derive seeds and analyze PDA patterns for any Solana program
-- **Transaction Monitoring**: Track and analyze transactions involving PDAs
-- **Pattern Recognition**: Automatically detect common PDA seed patterns
-- **Web Interface**: Modern web dashboard for visualization and interaction
-- **REST API**: Complete API for programmatic access
-- **Database Storage**: Persistent storage for analysis results and patterns
-- **CLI Tool**: Command-line interface for batch operations
+- ** Advanced PDA Analysis**: Derive seeds and analyze PDA patterns for any Solana program
+- ** Real-World Examples**: Pre-loaded with examples from major protocols (SPL Token, Metaplex, Serum, Raydium)
+- ** Pattern Recognition**: Automatically detect and classify common PDA seed patterns
 
-## Quick Start
+## 📊 Analysis Output Sample
+
+```
+════════════════════════════════════════════════════════════════════════════════
+🚀 SOLANA PDA ANALYZER - COMPREHENSIVE ANALYSIS REPORT
+════════════════════════════════════════════════════════════════════════════════
+📊 Analyzing Program Derived Addresses from Live Solana Programs
+🔍 Reverse Engineering Seed Patterns and Derivation Logic
+════════════════════════════════════════════════════════════════════════════════
+
+📋 DETAILED ANALYSIS RESULTS
+────────────────────────────────────────────────────────────────────────────────
+
+1. ✅ USDC Associated Token Account
+   🏷️  PDA Address: Gh9ZwEmd...hQKkx
+   🔧 Program: SPL Associated Token (ATokenGP...nL)
+   📝 Description: Stores USDC tokens for wallet 9WzDXwBbmkg8...
+   🎯 Pattern: WALLET_TOKEN_MINT (98% confidence)
+   ⏱️  Analysis Time: 12ms
+   🌱 Seed Breakdown:
+      1. 🔑 Pubkey (32 bytes): Wallet owner address
+      2. 🔑 Pubkey (32 bytes): SPL Token Program ID
+      3. 🔑 Pubkey (32 bytes): USDC mint address
+
+📊 PATTERN ANALYSIS & STATISTICS
+────────────────────────────────────────────────────────────────────────────────
+
+🏆 Pattern Distribution:
+   1. WALLET_TOKEN_MINT [█████████░░░░░░░░░░░] 45.0% (9 PDAs)
+   2. STRING_PROGRAM_MINT [████░░░░░░░░░░░░░░░░] 20.0% (4 PDAs)
+   3. STRING_AUTHORITY [███░░░░░░░░░░░░░░░░░░] 15.0% (3 PDAs)
+   4. PUBKEY_U64 [██░░░░░░░░░░░░░░░░░░] 10.0% (2 PDAs)
+   5. STRING_SINGLETON [██░░░░░░░░░░░░░░░░░░] 10.0% (2 PDAs)
+
+📈 EXECUTIVE SUMMARY
+────────────────────────────────────────────────────────────────────────────────
+🎯 Analysis Overview:
+   • Total PDAs Analyzed: 20
+   • Unique Patterns Detected: 8
+   • Overall Success Rate: 95.0%
+   • Total Processing Time: 234ms
+   • Average Time per PDA: 11.7ms
+```
+
+## 🏗️ Architecture
+
+The project is structured as a Rust workspace with the following crates:
+
+- **`core`**: Core PDA analysis logic, pattern recognition, and caching
+- **`analyzer`**: Transaction analysis and pattern detection algorithms
+- **`database`**: Database models, migrations, and repository layer
+- **`api`**: REST API server with Axum framework
+- **`cli`**: Command-line interface for all operations
+- **`examples`**: Real-world PDA examples from major protocols
+
+### 🗄️ Database Schema
+
+The database stores:
+- **Programs**: Program metadata and statistics
+- **PDAs**: Analyzed PDA addresses and patterns
+- **Patterns**: Pattern templates and usage statistics
+- **Transactions**: Transaction records and interactions
+- **Derivation Attempts**: Success/failure tracking for optimization
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Rust 1.70+
 - PostgreSQL 12+
-- Node.js 16+ (for web interface)
+- Docker (optional)
 
 ### Installation
 
@@ -42,187 +102,226 @@ A comprehensive tool for analyzing Solana Program Derived Addresses (PDAs), trac
 
 3. **Build the project**
    ```bash
-   cargo build --release
+   make build
+   # or manually: cargo build --release
    ```
 
 4. **Initialize the database**
    ```bash
-   ./target/release/pda-analyzer database init
+   make db-init
+   # or manually: ./target/release/pda-analyzer database init
    ```
 
-5. **Start the server**
+5. **Run the tests**
    ```bash
-   ./target/release/pda-analyzer serve
+   make test-all
    ```
 
-6. **Access the web interface**
+6. **Start the server**
+   ```bash
+   make run
+   # or manually: ./target/release/pda-analyzer serve
+   ```
+
+7. **Access the web interface**
    
    Open your browser to `http://localhost:8080`
 
-## Usage
+### 🐳 Docker Setup (Alternative)
+
+```bash
+# Start with Docker Compose
+docker-compose up -d
+
+# Run tests in Docker
+docker-compose exec app make test-all
+
+# View logs
+docker-compose logs -f app
+```
+
+## 💻 Usage
 
 ### Command Line Interface
 
-#### Analyze a PDA
+#### Analyze Individual PDAs
 ```bash
+# Analyze a specific PDA
 ./target/release/pda-analyzer analyze \
-  --address "YourPDAAddressHere" \
-  --program-id "YourProgramIdHere"
+  --address "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr" \
+  --program-id "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+
+# Batch analyze multiple PDAs
+./target/release/pda-analyzer batch-analyze \
+  --input pdas.json \
+  --output results.json
 ```
 
-#### Fetch and analyze transactions
+#### Run Real-World Examples
 ```bash
-./target/release/pda-analyzer fetch \
-  --program-id "YourProgramIdHere" \
-  --limit 1000
+# Run all example analyses
+./examples/run_examples.sh
+
+# Run specific category
+./examples/run_examples.sh spl-token
+./examples/run_examples.sh metaplex
+./examples/run_examples.sh real-world
 ```
 
-#### Database operations
+#### Database Operations
 ```bash
-# Initialize database
+# Initialize database with schema
 ./target/release/pda-analyzer database init
 
-# Check database status
+# Check database status and metrics
 ./target/release/pda-analyzer database status
 
-# Reset database
+# Reset database (caution!)
 ./target/release/pda-analyzer database reset
 
-# Run migrations
+# Run pending migrations
 ./target/release/pda-analyzer database migrate
 ```
 
-#### Show statistics
+#### Fetch and Analyze Transactions
 ```bash
-./target/release/pda-analyzer stats
+# Fetch recent transactions for a program
+./target/release/pda-analyzer fetch \
+  --program-id "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s" \
+  --limit 1000
+
+# Analyze transaction patterns
+./target/release/pda-analyzer analyze-transactions \
+  --program-id "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin"
 ```
 
-### Web Interface
-
-The web interface provides:
-
-- **PDA Analyzer**: Interactive form to analyze individual PDAs
-- **Programs Dashboard**: View all analyzed programs and their statistics
-- **Transactions**: Monitor recent transactions involving PDAs
-- **Analytics**: Charts and visualizations of PDA patterns and usage
-
-### REST API
-
-#### Analyze a PDA
+#### Statistics and Reports
 ```bash
+# Show comprehensive statistics
+./target/release/pda-analyzer stats
+
+# Generate detailed analysis report
+./target/release/pda-analyzer report \
+  --output html \
+  --file analysis_report.html
+```
+
+### 🔌 REST API
+
+#### Analyze PDAs
+```bash
+# Analyze a single PDA
 curl -X POST http://localhost:8080/api/v1/analyze/pda \
   -H "Content-Type: application/json" \
   -d '{
-    "address": "YourPDAAddressHere",
-    "program_id": "YourProgramIdHere"
+    "address": "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr",
+    "program_id": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+  }'
+
+# Batch analyze multiple PDAs
+curl -X POST http://localhost:8080/api/v1/analyze/pda/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pdas": [
+      {"address": "PDA1...", "program_id": "PROG1..."},
+      {"address": "PDA2...", "program_id": "PROG2..."}
+    ]
   }'
 ```
 
-#### Get programs
+#### Programs and Patterns
 ```bash
+# Get all analyzed programs
 curl http://localhost:8080/api/v1/programs
+
+# Get program details and statistics
+curl http://localhost:8080/api/v1/programs/{program_id}
+
+# Get PDA patterns for a program
+curl http://localhost:8080/api/v1/programs/{program_id}/patterns
 ```
 
-#### Get transactions
+#### Analytics and Reports
 ```bash
-curl http://localhost:8080/api/v1/transactions?limit=10
-```
-
-#### Get database metrics
-```bash
+# Get database metrics
 curl http://localhost:8080/api/v1/analytics/database
+
+# Get pattern distribution
+curl http://localhost:8080/api/v1/analytics/patterns
+
+# Get performance metrics
+curl http://localhost:8080/api/v1/analytics/performance
 ```
 
-## Configuration
+## Real-World Examples
+
+The tool includes comprehensive examples from major Solana protocols:
+
+### 📊 SPL Token Examples
+- **Associated Token Accounts**: Most common PDA pattern on Solana
+- **Mint Authorities**: Program-controlled token minting
+- **Vault Token Accounts**: DeFi protocol escrow patterns
+
+### 🎨 Metaplex NFT Examples
+- **NFT Metadata**: Standard NFT information storage
+- **Master Editions**: NFT printing and edition control
+- **Collection Metadata**: NFT collection organization
+- **Auction House**: NFT marketplace structures
+
+### 🌍 Protocol Examples
+- **Serum DEX**: Market authorities and trading structures
+- **Raydium AMM**: Liquidity pool management
+- **Marinade Finance**: Liquid staking protocol state
+- **Solana Name Service**: Domain name resolution
+- **Governance**: DAO proposal and voting systems
+
+Each example includes:
+- ✅ **Real PDA addresses** from mainnet/testnet
+- 🔍 **Expected seed patterns** with detailed breakdowns
+- 📝 **Comprehensive descriptions** of functionality
+- 🧪 **Automated tests** for validation
+
+## ⚙️ Configuration
 
 ### Environment Variables
 
-See `.env.example` for all available configuration options.
+Create a `.env` file (copy from `.env.example`) and update as required
 
-### Configuration File
-
-You can also use a TOML configuration file (`config.toml`):
-
-```toml
-[database]
-host = "localhost"
-port = 5432
-name = "solana_pda_analyzer"
-user = "postgres"
-password = "your_password"
-
-[server]
-host = "127.0.0.1"
-port = 8080
-log_level = "info"
-
-[solana]
-rpc_url = "https://api.mainnet-beta.solana.com"
-```
-
-## Architecture
-
-The project is structured as a Rust workspace with the following crates:
-
-- **`core`**: Core PDA analysis logic and types
-- **`analyzer`**: Transaction analysis and pattern detection
-- **`database`**: Database models and repository layer
-- **`api`**: REST API server implementation
-- **`cli`**: Command-line interface
-
-### Database Schema
-
-The database stores:
-- Programs and their metadata
-- PDA patterns and seed templates
-- Transaction records
-- Account interactions
-- Seed derivation attempts
-
-## Development
+## 🧪 Testing
 
 ### Running Tests
 
 ```bash
-cargo test
+# Run all tests
+make test-all
+
+# Run specific test categories
+make test-unit        # Unit tests only
+make test-integration # Integration tests only
+make test-api        # API endpoint tests
+make test-performance # Performance benchmarks
+
+# Run tests with coverage
+make test-coverage
+
+# Run example validation
+make test-examples
 ```
 
-### Running with Docker
+### Performance Testing
 
 ```bash
-docker-compose up
+# Run benchmark tests
+cargo bench
+
+# Load test the API
+./tests/load_test.py --concurrent 50 --requests 1000
+
+# Profile memory usage
+./tests/memory_profile.sh
 ```
 
-### Building for Production
-
-```bash
-cargo build --release
-```
-
-## API Reference
-
-### Endpoints
-
-#### PDA Analysis
-- `POST /api/v1/analyze/pda` - Analyze a single PDA
-- `POST /api/v1/analyze/pda/batch` - Batch analyze multiple PDAs
-
-#### Programs
-- `GET /api/v1/programs` - List all programs
-- `GET /api/v1/programs/{id}` - Get program details
-- `GET /api/v1/programs/{id}/stats` - Get program statistics
-- `GET /api/v1/programs/{id}/patterns` - Get program PDA patterns
-
-#### Transactions
-- `GET /api/v1/transactions` - List transactions
-- `GET /api/v1/transactions/{signature}` - Get transaction details
-
-#### PDAs
-- `GET /api/v1/pdas` - List PDAs
-- `GET /api/v1/pdas/{address}` - Get PDA details
-
-#### Analytics
-- `GET /api/v1/analytics/database` - Get database metrics
+## 📊 API Reference
 
 ### Response Format
 
@@ -231,32 +330,90 @@ All API responses follow this format:
 ```json
 {
   "success": true,
-  "data": { ... },
+  "data": {
+    "pda_info": {
+      "address": "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr",
+      "program_id": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+      "seeds": [
+        {
+          "type": "Pubkey",
+          "value": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+          "description": "Wallet owner address"
+        }
+      ],
+      "pattern": "WALLET_TOKEN_MINT",
+      "confidence": 0.98,
+      "analysis_time_ms": 12
+    }
+  },
   "error": null,
-  "timestamp": "2024-01-01T00:00:00Z"
+  "timestamp": "2024-01-01T00:00:00Z",
+  "request_id": "req_123456789"
 }
 ```
 
-## Contributing
+### Complete Endpoint List
+
+#### PDA Analysis
+- `POST /api/v1/analyze/pda` - Analyze a single PDA
+- `POST /api/v1/analyze/pda/batch` - Batch analyze multiple PDAs
+- `GET /api/v1/pdas` - List analyzed PDAs with pagination
+- `GET /api/v1/pdas/{address}` - Get detailed PDA information
+
+#### Programs
+- `GET /api/v1/programs` - List all programs
+- `GET /api/v1/programs/{id}` - Get program details
+- `GET /api/v1/programs/{id}/stats` - Get program statistics
+- `GET /api/v1/programs/{id}/patterns` - Get program PDA patterns
+
+#### Transactions
+- `GET /api/v1/transactions` - List transactions with filters
+- `GET /api/v1/transactions/{signature}` - Get transaction details
+- `POST /api/v1/transactions/analyze` - Analyze transaction for PDAs
+
+#### Analytics
+- `GET /api/v1/analytics/database` - Database metrics and statistics
+- `GET /api/v1/analytics/patterns` - Pattern distribution and trends
+- `GET /api/v1/analytics/performance` - Performance metrics and timing
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+### Quick Contribution Steps
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and add tests
+4. Run the test suite: `make test-all`
+5. Commit your changes: `git commit -m "Add amazing feature"`
+6. Push to the branch: `git push origin feature/amazing-feature`
+7. Submit a pull request
 
-## License
+### Development Setup
+
+```bash
+# Install development dependencies
+make dev-setup
+
+# Run development server with hot reload
+make dev
+
+# Run linting and formatting
+make lint
+make fmt
+
+# Generate documentation
+make docs
+```
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## 📞 Support
 
-- Built with [Rust](https://www.rust-lang.org/)
-- Uses [Solana SDK](https://docs.rs/solana-sdk/) for blockchain interaction
-- Database layer powered by [SQLx](https://github.com/launchbadge/sqlx)
-- Web server built with [Axum](https://github.com/tokio-rs/axum)
-- Frontend uses [Bootstrap](https://getbootstrap.com/) and [Chart.js](https://www.chartjs.org/)
-
-## Support
-
-For questions and support, please open an issue on GitHub or contact the maintainers.
+- **🐛 Bug Reports**: [GitHub Issues](https://github.com/your-username/solana-pda-analyzer/issues)
+- **💡 Feature Requests**: [GitHub Discussions](https://github.com/your-username/solana-pda-analyzer/discussions)
+- **📖 Documentation**: [Project Wiki](https://github.com/your-username/solana-pda-analyzer/wiki)
+- **💬 Community**: [Discord Channel](https://discord.gg/your-server)
