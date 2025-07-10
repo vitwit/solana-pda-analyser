@@ -1,0 +1,21 @@
+[package]
+name = "solana-pda-analyzer-analyzer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-pda-analyzer-core = { path = "../core" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+solana-sdk = { workspace = true }
+solana-client = { workspace = true }
+solana-rpc-client = { workspace = true }
+solana-rpc-client-api = { workspace = true }
+solana-account-decoder = { workspace = true }
+solana-transaction-status = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+bs58 = { workspace = true }
+uuid = { workspace = true }

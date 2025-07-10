@@ -1,0 +1,21 @@
+[package]
+name = "solana-pda-analyzer-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "pda-analyzer"
+path = "src/main.rs"
+
+[dependencies]
+solana-pda-analyzer-core = { path = "../core" }
+solana-pda-analyzer-analyzer = { path = "../analyzer" }
+solana-pda-analyzer-database = { path = "../database" }
+solana-pda-analyzer-api = { path = "../api" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

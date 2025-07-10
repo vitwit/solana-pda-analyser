@@ -1,0 +1,59 @@
+[database]
+host = "localhost"
+port = 5432
+name = "solana_pda_analyzer"
+user = "postgres"
+password = ""
+max_connections = 10
+min_connections = 1
+acquire_timeout = 30
+idle_timeout = 600
+max_lifetime = 1800
+
+[server]
+host = "127.0.0.1"
+port = 8080
+log_level = "info"
+static_files_dir = "./web"
+
+[solana]
+rpc_url = "https://api.mainnet-beta.solana.com"
+ws_url = "wss://api.mainnet-beta.solana.com/"
+commitment = "confirmed"
+
+[analytics]
+enabled = true
+retention_days = 30
+batch_size = 100
+
+[rate_limiting]
+requests_per_minute = 60
+burst_size = 10
+enabled = true
+
+[cors]
+allowed_origins = ["http://localhost:3000", "http://localhost:8080"]
+allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+allowed_headers = ["Content-Type", "Authorization", "X-Requested-With"]
+
+[security]
+enable_security_headers = true
+enable_request_logging = true
+max_request_size = 1048576  # 1MB
+
+[cache]
+ttl_seconds = 300
+max_size = 1000
+enabled = true
+
+[monitoring]
+enable_metrics = true
+metrics_port = 9090
+health_check_interval = 30
+
+[logging]
+level = "info"
+format = "json"
+file = "pda-analyzer.log"
+max_size = 10  # MB
+max_files = 5

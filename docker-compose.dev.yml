@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database for development
+  postgres:
+    image: postgres:15-alpine
+    container_name: pda-analyzer-db-dev
+    environment:
+      POSTGRES_DB: solana_pda_analyzer_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    networks:
+      - pda-analyzer-dev-network
+
+  # Redis for development
+  redis:
+    image: redis:7-alpine
+    container_name: pda-analyzer-redis-dev
+    ports:
+      - "6380:6379"
+    networks:
+      - pda-analyzer-dev-network
+
+  # Development application (with hot reload)
+  pda-analyzer-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: pda-analyzer-app-dev
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: solana_pda_analyzer_dev
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: dev_password
+      HOST: 0.0.0.0
+      PORT: 8080
+      LOG_LEVEL: debug
+      SOLANA_RPC_URL: https://api.devnet.solana.com
+      RUST_LOG: debug
+    ports:
+      - "8081:8080"
+    volumes:
+      - .:/app
+      - cargo_cache:/usr/local/cargo/registry
+      - target_cache:/app/target
+    networks:
+      - pda-analyzer-dev-network
+    command: ["cargo", "watch", "-x", "run -- serve --host 0.0.0.0 --port 8080"]
+
+volumes:
+  postgres_dev_data:
+  cargo_cache:
+  target_cache:
+
+networks:
+  pda-analyzer-dev-network:
+    driver: bridge

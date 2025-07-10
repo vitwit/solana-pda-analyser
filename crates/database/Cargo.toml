@@ -1,0 +1,16 @@
+[package]
+name = "solana-pda-analyzer-database"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-pda-analyzer-core = { path = "../core" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+sqlx = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }

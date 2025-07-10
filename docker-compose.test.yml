@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  # Test database
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: pda-analyzer-test-db
+    environment:
+      POSTGRES_DB: solana_pda_analyzer_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test application
+  pda-analyzer-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: pda-analyzer-test-app
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    environment:
+      DATABASE_HOST: postgres-test
+      DATABASE_PORT: 5432
+      DATABASE_NAME: solana_pda_analyzer_test
+      DATABASE_USER: test_user
+      DATABASE_PASSWORD: test_password
+      HOST: 0.0.0.0
+      PORT: 8080
+      LOG_LEVEL: debug
+      RUST_LOG: debug
+      RUST_BACKTRACE: 1
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./tests:/app/tests
+      - test_target_cache:/app/target
+    networks:
+      - test-network
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 10 &&
+        echo 'Initializing test database...' &&
+        ./target/release/pda-analyzer database init &&
+        echo 'Starting test server...' &&
+        ./target/release/pda-analyzer serve --host 0.0.0.0 --port 8080
+      "
+
+  # Test runner service
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: pda-analyzer-test-runner
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      pda-analyzer-test:
+        condition: service_started
+    environment:
+      DATABASE_HOST: postgres-test
+      DATABASE_PORT: 5432
+      DATABASE_NAME: solana_pda_analyzer_test
+      DATABASE_USER: test_user
+      DATABASE_PASSWORD: test_password
+      API_BASE_URL: http://pda-analyzer-test:8080
+      RUST_LOG: debug
+      RUST_BACKTRACE: 1
+    volumes:
+      - ./tests:/app/tests
+      - test_target_cache:/app/target
+    networks:
+      - test-network
+    profiles:
+      - test
+    command: >
+      sh -c "
+        echo 'Waiting for services to be ready...' &&
+        sleep 20 &&
+        echo 'Running unit tests...' &&
+        cargo test --release &&
+        echo 'Running integration tests...' &&
+        python3 /app/tests/integration_test.py --url http://pda-analyzer-test:8080 &&
+        echo 'Running performance tests...' &&
+        python3 /app/tests/performance_test.py --url http://pda-analyzer-test:8080 --quick &&
+        echo 'All tests completed!'
+      "
+
+  # Performance test runner
+  perf-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: pda-analyzer-perf-test
+    depends_on:
+      - pda-analyzer-test
+    environment:
+      API_BASE_URL: http://pda-analyzer-test:8080
+    volumes:
+      - ./tests:/app/tests
+    networks:
+      - test-network
+    profiles:
+      - perf
+    command: >
+      sh -c "
+        echo 'Waiting for test application...' &&
+        sleep 30 &&
+        echo 'Running performance tests...' &&
+        python3 /app/tests/performance_test.py --url http://pda-analyzer-test:8080 --users 20 --requests 5
+      "
+
+volumes:
+  test_postgres_data:
+  test_target_cache:
+
+networks:
+  test-network:
+    driver: bridge

@@ -1,0 +1,33 @@
+# Development Dockerfile with hot reload support
+
+FROM rust:1.75-slim-bullseye
+
+# Install development dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cargo-watch for hot reloading
+RUN cargo install cargo-watch
+
+# Set working directory
+WORKDIR /app
+
+# Copy Cargo files
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ ./crates/
+
+# Build dependencies (this layer will be cached)
+RUN cargo build --release
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 8080
+
+# Default command for development
+CMD ["cargo", "watch", "-x", "run -- serve --host 0.0.0.0 --port 8080"]
