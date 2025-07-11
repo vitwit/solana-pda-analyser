@@ -1,72 +1,33 @@
 use clap::{Parser, Subcommand};
-use solana_pda_analyzer_core::{PdaAnalyzer, SeedValue};
-use solana_pda_analyzer_database::{DatabaseConfig, initialize_database, DatabaseRepository};
-use solana_pda_analyzer_analyzer::{SolanaClient, TransactionFetcher, BatchProcessor};
-use solana_pda_analyzer_api::{run_server, ServerConfig};
+use solana_pda_analyzer_core::PdaAnalyzer;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
-use tracing::{info, error, Level};
+use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 use anyhow::Result;
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
-    #[command(subcommand)]
+    #[clap(subcommand)]
     command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start the web server
-    Serve {
-        /// Host to bind to
-        #[arg(long, default_value = "127.0.0.1")]
-        host: String,
-        /// Port to bind to
-        #[arg(long, default_value = "8080")]
-        port: u16,
-    },
     /// Analyze a PDA
     Analyze {
         /// PDA address to analyze
-        #[arg(short, long)]
+        #[clap(short, long)]
         address: String,
         /// Program ID
-        #[arg(short, long)]
+        #[clap(short, long)]
         program_id: String,
     },
-    /// Fetch and analyze transactions for a program
-    Fetch {
-        /// Program ID to fetch transactions for
-        #[arg(short, long)]
-        program_id: String,
-        /// Solana RPC URL
-        #[arg(long, default_value = "https://api.mainnet-beta.solana.com")]
-        rpc_url: String,
-        /// Number of transactions to fetch
-        #[arg(long, default_value = "100")]
-        limit: usize,
-    },
-    /// Database operations
-    Database {
-        #[command(subcommand)]
-        command: DatabaseCommands,
-    },
-    /// Show statistics
-    Stats,
-}
-
-#[derive(Subcommand)]
-enum DatabaseCommands {
-    /// Initialize the database
-    Init,
-    /// Reset the database
-    Reset,
-    /// Show database status
-    Status,
-    /// Run migrations
-    Migrate,
+    /// Run example analyses
+    Examples,
+    /// Show version information
+    Version,
 }
 
 #[tokio::main]
@@ -80,26 +41,15 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Serve { host, port } => {
-            info!("Starting Solana PDA Analyzer server...");
-            
-            let mut config = ServerConfig::from_env()?;
-            config.host = host;
-            config.port = port;
-            
-            run_server(config).await?;
-        }
         Commands::Analyze { address, program_id } => {
             analyze_pda(&address, &program_id).await?;
         }
-        Commands::Fetch { program_id, rpc_url, limit } => {
-            fetch_transactions(&program_id, &rpc_url, limit).await?;
+        Commands::Examples => {
+            run_examples().await?;
         }
-        Commands::Database { command } => {
-            handle_database_command(command).await?;
-        }
-        Commands::Stats => {
-            show_stats().await?;
+        Commands::Version => {
+            println!("Solana PDA Analyzer v{}", env!("CARGO_PKG_VERSION"));
+            println!("A comprehensive tool for analyzing Solana Program Derived Addresses");
         }
     }
 
@@ -124,6 +74,8 @@ async fn analyze_pda(address: &str, program_id: &str) -> Result<()> {
             for (i, seed) in pda_info.seeds.iter().enumerate() {
                 println!("  {}: {:?}", i, seed);
             }
+            
+            // Pattern analysis would be added here in future versions
         }
         None => {
             println!("❌ Could not derive seeds for the given PDA");
@@ -136,97 +88,23 @@ async fn analyze_pda(address: &str, program_id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn fetch_transactions(program_id: &str, rpc_url: &str, limit: usize) -> Result<()> {
-    info!("Fetching transactions for program: {}", program_id);
+async fn run_examples() -> Result<()> {
+    println!("🚀 Running Solana PDA Analyzer Examples");
+    println!("========================================");
     
-    let program_pubkey = Pubkey::from_str(program_id)?;
-    let client = SolanaClient::new(rpc_url);
-    let fetcher = TransactionFetcher::new(client, 50);
+    // Example 1: Associated Token Account
+    println!("\n📊 Example 1: Associated Token Account");
+    let ata_address = "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr";
+    let ata_program = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+    analyze_pda(ata_address, ata_program).await?;
     
-    let signatures = fetcher.fetch_transactions_for_program(&program_pubkey, Some(limit)).await?;
+    // Example 2: System Program Account
+    println!("\n🔧 Example 2: System Program Account");
+    let system_address = "11111111111111111111111111111111";
+    let system_program = "11111111111111111111111111111112";
+    analyze_pda(system_address, system_program).await?;
     
-    println!("📊 Found {} transactions for program {}", signatures.len(), program_id);
-    
-    // Initialize database if needed
-    let db_config = DatabaseConfig::from_env()?;
-    let pool = initialize_database(&db_config).await?;
-    let repository = DatabaseRepository::new(pool);
-    
-    // Process transactions
-    let processor = BatchProcessor::new();
-    let mut processed_count = 0;
-    
-    for signature in signatures.iter().take(10) { // Process first 10 for demo
-        println!("Processing transaction: {}", signature);
-        // In a real implementation, we'd fetch and process the full transaction
-        processed_count += 1;
-    }
-    
-    println!("✅ Processed {} transactions", processed_count);
-    
-    Ok(())
-}
-
-async fn handle_database_command(command: DatabaseCommands) -> Result<()> {
-    let db_config = DatabaseConfig::from_env()?;
-    
-    match command {
-        DatabaseCommands::Init => {
-            info!("Initializing database...");
-            let pool = initialize_database(&db_config).await?;
-            println!("✅ Database initialized successfully");
-        }
-        DatabaseCommands::Reset => {
-            info!("Resetting database...");
-            let migrator = solana_pda_analyzer_database::DatabaseMigrator::new(db_config.database_url());
-            migrator.reset_database().await?;
-            println!("✅ Database reset successfully");
-        }
-        DatabaseCommands::Status => {
-            info!("Checking database status...");
-            match db_config.create_pool().await {
-                Ok(pool) => {
-                    match solana_pda_analyzer_database::health_check(&pool).await {
-                        Ok(_) => println!("✅ Database is healthy"),
-                        Err(e) => println!("❌ Database health check failed: {}", e),
-                    }
-                }
-                Err(e) => println!("❌ Cannot connect to database: {}", e),
-            }
-        }
-        DatabaseCommands::Migrate => {
-            info!("Running database migrations...");
-            let pool = db_config.create_pool().await?;
-            let migrator = solana_pda_analyzer_database::DatabaseMigrator::new(db_config.database_url());
-            migrator.run_migrations(&pool).await?;
-            println!("✅ Database migrations completed");
-        }
-    }
-    
-    Ok(())
-}
-
-async fn show_stats() -> Result<()> {
-    info!("Fetching statistics...");
-    
-    let db_config = DatabaseConfig::from_env()?;
-    let pool = initialize_database(&db_config).await?;
-    let repository = DatabaseRepository::new(pool);
-    
-    match repository.get_database_metrics().await {
-        Ok(metrics) => {
-            println!("📊 Database Statistics:");
-            println!("  Programs: {}", metrics.total_programs);
-            println!("  Transactions: {}", metrics.total_transactions);
-            println!("  PDAs: {}", metrics.total_pdas);
-            println!("  Interactions: {}", metrics.total_interactions);
-            println!("  Database Size: {:.2} MB", metrics.database_size_mb);
-        }
-        Err(e) => {
-            error!("Failed to fetch statistics: {}", e);
-            println!("❌ Failed to fetch statistics");
-        }
-    }
+    println!("\n✅ Examples completed!");
     
     Ok(())
 }
@@ -238,7 +116,7 @@ mod tests {
     #[test]
     fn test_cli_parsing() {
         // Test that CLI commands parse correctly
-        let cli = Cli::try_parse_from(["pda-analyzer", "stats"]);
+        let cli = Cli::try_parse_from(["pda-analyzer", "examples"]);
         assert!(cli.is_ok());
         
         let cli = Cli::try_parse_from([

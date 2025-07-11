@@ -26,9 +26,9 @@ build:
 test:
 	cargo test
 
-# Run the application locally
+# Run the application examples
 run:
-	cargo run --bin pda-analyzer -- serve
+	cargo run --bin pda-analyzer -- examples
 
 # Clean build artifacts
 clean:

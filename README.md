@@ -52,26 +52,6 @@ A comprehensive, production-ready tool for analyzing Solana Program Derived Addr
    • Average Time per PDA: 11.7ms
 ```
 
-## 🏗️ Architecture
-
-The project is structured as a Rust workspace with the following crates:
-
-- **`core`**: Core PDA analysis logic, pattern recognition, and caching
-- **`analyzer`**: Transaction analysis and pattern detection algorithms
-- **`database`**: Database models, migrations, and repository layer
-- **`api`**: REST API server with Axum framework
-- **`cli`**: Command-line interface for all operations
-- **`examples`**: Real-world PDA examples from major protocols
-
-### 🗄️ Database Schema
-
-The database stores:
-- **Programs**: Program metadata and statistics
-- **PDAs**: Analyzed PDA addresses and patterns
-- **Patterns**: Pattern templates and usage statistics
-- **Transactions**: Transaction records and interactions
-- **Derivation Attempts**: Success/failure tracking for optimization
-
 ## 🚀 Quick Start
 
 ### Prerequisites

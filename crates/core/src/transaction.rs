@@ -203,10 +203,10 @@ pub struct InstructionAnalysis {
 
 impl InstructionAnalysis {
     pub fn from_instruction(instruction: &Instruction, message: &solana_sdk::message::Message) -> Self {
-        let program_id = message.account_keys[instruction.program_id_index as usize];
+        let program_id = instruction.program_id;
         let accounts: Vec<Pubkey> = instruction.accounts
             .iter()
-            .map(|&index| message.account_keys[index as usize])
+            .map(|account_meta| account_meta.pubkey)
             .collect();
         
         // Filter for potential PDAs (off-curve addresses)
