@@ -1,4 +1,4 @@
-use crate::{PdaAnalyzerError, Result, TransactionAnalysis, PdaInteraction, InteractionType, PdaInfo};
+use crate::{Result, TransactionAnalysis, PdaInteraction, InteractionType, PdaInfo};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
 use solana_sdk::instruction::Instruction;
@@ -202,7 +202,7 @@ pub struct InstructionAnalysis {
 }
 
 impl InstructionAnalysis {
-    pub fn from_instruction(instruction: &Instruction, message: &solana_sdk::message::Message) -> Self {
+    pub fn from_instruction(instruction: &Instruction, _message: &solana_sdk::message::Message) -> Self {
         let program_id = instruction.program_id;
         let accounts: Vec<Pubkey> = instruction.accounts
             .iter()

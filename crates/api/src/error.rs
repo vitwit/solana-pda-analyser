@@ -22,19 +22,23 @@ impl ApiError {
         }
     }
 
-    pub fn bad_request(message: String) -> Self {
+    pub fn BadRequest(message: String) -> Self {
         Self::new("Bad Request".to_string(), message, StatusCode::BAD_REQUEST)
     }
 
-    pub fn not_found(message: String) -> Self {
+    pub fn NotFound(message: String) -> Self {
         Self::new("Not Found".to_string(), message, StatusCode::NOT_FOUND)
     }
 
-    pub fn internal_server_error(message: String) -> Self {
+    pub fn InternalServerError(message: String) -> Self {
         Self::new("Internal Server Error".to_string(), message, StatusCode::INTERNAL_SERVER_ERROR)
     }
 
-    pub fn unprocessable_entity(message: String) -> Self {
+    pub fn NotImplemented(message: String) -> Self {
+        Self::new("Not Implemented".to_string(), message, StatusCode::NOT_IMPLEMENTED)
+    }
+
+    pub fn UnprocessableEntity(message: String) -> Self {
         Self::new("Unprocessable Entity".to_string(), message, StatusCode::UNPROCESSABLE_ENTITY)
     }
 }
@@ -49,28 +53,28 @@ impl IntoResponse for ApiError {
 impl From<PdaAnalyzerError> for ApiError {
     fn from(err: PdaAnalyzerError) -> Self {
         match err {
-            PdaAnalyzerError::InvalidSeedData(msg) => ApiError::bad_request(msg),
-            PdaAnalyzerError::PdaDerivationFailed(msg) => ApiError::unprocessable_entity(msg),
-            PdaAnalyzerError::InvalidProgramId(msg) => ApiError::bad_request(msg),
-            PdaAnalyzerError::InvalidPublicKey(msg) => ApiError::bad_request(msg),
-            PdaAnalyzerError::TransactionParsingError(msg) => ApiError::unprocessable_entity(msg),
-            PdaAnalyzerError::DatabaseError(msg) => ApiError::internal_server_error(msg),
-            PdaAnalyzerError::SerializationError(msg) => ApiError::internal_server_error(msg),
-            PdaAnalyzerError::NetworkError(msg) => ApiError::internal_server_error(msg),
-            PdaAnalyzerError::ConfigurationError(msg) => ApiError::internal_server_error(msg),
+            PdaAnalyzerError::InvalidSeedData(msg) => ApiError::BadRequest(msg),
+            PdaAnalyzerError::PdaDerivationFailed(msg) => ApiError::UnprocessableEntity(msg),
+            PdaAnalyzerError::InvalidProgramId(msg) => ApiError::BadRequest(msg),
+            PdaAnalyzerError::InvalidPublicKey(msg) => ApiError::BadRequest(msg),
+            PdaAnalyzerError::TransactionParsingError(msg) => ApiError::UnprocessableEntity(msg),
+            PdaAnalyzerError::DatabaseError(msg) => ApiError::InternalServerError(msg),
+            PdaAnalyzerError::SerializationError(msg) => ApiError::InternalServerError(msg),
+            PdaAnalyzerError::NetworkError(msg) => ApiError::InternalServerError(msg),
+            PdaAnalyzerError::ConfigurationError(msg) => ApiError::InternalServerError(msg),
         }
     }
 }
 
-impl From<sqlx::Error> for ApiError {
-    fn from(err: sqlx::Error) -> Self {
-        ApiError::internal_server_error(err.to_string())
-    }
-}
+// impl From<sqlx::Error> for ApiError {
+//     fn from(err: sqlx::Error) -> Self {
+//         ApiError::InternalServerError(err.to_string())
+//     }
+// }
 
 impl From<serde_json::Error> for ApiError {
     fn from(err: serde_json::Error) -> Self {
-        ApiError::bad_request(err.to_string())
+        ApiError::BadRequest(err.to_string())
     }
 }
 

@@ -1,6 +1,5 @@
 use axum::{
-    extract::Request,
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, Request},
     middleware::Next,
     response::Response,
 };

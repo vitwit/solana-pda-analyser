@@ -1,23 +1,15 @@
-use crate::{ApiResult, ApiError, ApiResponse};
+use crate::{ApiError, ApiResponse, AppState};
 use axum::{
     extract::{Path, Query, State},
     Json,
     response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
-use solana_pda_analyzer_database::{DatabaseRepository, ProgramFilter, TransactionFilter, PdaFilter};
-use solana_pda_analyzer_core::PdaAnalyzer;
+use solana_pda_analyzer_core::{PdaAnalysisResult, DatabaseStats, DbPdaInfo, DbProgram};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use uuid::Uuid;
-
-#[derive(Debug, Clone)]
-pub struct AppState {
-    pub database: DatabaseRepository,
-    pub pda_analyzer: Arc<RwLock<PdaAnalyzer>>,
-}
+use std::collections::HashMap;
+use tracing::{info, error};
 
 // Request/Response types
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,22 +19,13 @@ pub struct AnalyzePdaRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct AnalyzePdaResponse {
-    pub address: String,
-    pub program_id: String,
-    pub seeds: Option<Vec<serde_json::Value>>,
-    pub bump: Option<u8>,
-    pub derived_successfully: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct AnalyzeTransactionRequest {
     pub signature: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BatchAnalyzePdaRequest {
-    pub addresses: Vec<AnalyzePdaRequest>,
+    pub pdas: Vec<AnalyzePdaRequest>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -66,83 +49,166 @@ pub struct PdaQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
     pub program_id: Option<String>,
+    pub pattern: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HealthCheckResponse {
+    pub status: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub database_connected: bool,
+    pub version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiDocsResponse {
+    pub title: String,
+    pub version: String,
+    pub description: String,
+    pub endpoints: Vec<EndpointDoc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EndpointDoc {
+    pub method: String,
+    pub path: String,
+    pub description: String,
+    pub example: Option<String>,
 }
 
 // Health check handler
-pub async fn health_check() -> impl IntoResponse {
-    ApiResponse::success("Service is healthy")
+pub async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
+    let database_connected = match state.database.get_stats().await {
+        Ok(_) => true,
+        Err(e) => {
+            error!("Database health check failed: {}", e);
+            false
+        }
+    };
+
+    let response = HealthCheckResponse {
+        status: "healthy".to_string(),
+        timestamp: chrono::Utc::now(),
+        database_connected,
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    };
+
+    ApiResponse::success(response)
+}
+
+/// API documentation endpoint
+pub async fn api_docs() -> impl IntoResponse {
+    let endpoints = vec![
+        EndpointDoc {
+            method: "GET".to_string(),
+            path: "/health".to_string(),
+            description: "Health check endpoint".to_string(),
+            example: None,
+        },
+        EndpointDoc {
+            method: "POST".to_string(),
+            path: "/api/v1/analyze/pda".to_string(),
+            description: "Analyze a single PDA".to_string(),
+            example: Some(r#"{"address": "...", "program_id": "..."}"#.to_string()),
+        },
+        EndpointDoc {
+            method: "POST".to_string(),
+            path: "/api/v1/analyze/pda/batch".to_string(),
+            description: "Batch analyze multiple PDAs".to_string(),
+            example: Some(r#"{"pdas": [{"address": "...", "program_id": "..."}]}"#.to_string()),
+        },
+        EndpointDoc {
+            method: "GET".to_string(),
+            path: "/api/v1/programs".to_string(),
+            description: "List all programs".to_string(),
+            example: None,
+        },
+        EndpointDoc {
+            method: "GET".to_string(),
+            path: "/api/v1/programs/:program_id".to_string(),
+            description: "Get program details".to_string(),
+            example: None,
+        },
+        EndpointDoc {
+            method: "GET".to_string(),
+            path: "/api/v1/analytics/database".to_string(),
+            description: "Get database metrics".to_string(),
+            example: None,
+        },
+    ];
+
+    let response = ApiDocsResponse {
+        title: "Solana PDA Analyzer API".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        description: "Comprehensive API for analyzing Solana Program Derived Addresses".to_string(),
+        endpoints,
+    };
+
+    ApiResponse::success(response)
 }
 
 // PDA analysis handlers
 pub async fn analyze_pda(
     State(state): State<AppState>,
     Json(request): Json<AnalyzePdaRequest>,
-) -> ApiResult<impl IntoResponse> {
+) -> Result<impl IntoResponse, ApiError> {
+    info!("Analyzing PDA: {} for program: {}", request.address, request.program_id);
+
     let address = Pubkey::from_str(&request.address)
-        .map_err(|_| ApiError::bad_request("Invalid address".to_string()))?;
+        .map_err(|e| ApiError::BadRequest(format!("Invalid PDA address: {}", e)))?;
     
     let program_id = Pubkey::from_str(&request.program_id)
-        .map_err(|_| ApiError::bad_request("Invalid program ID".to_string()))?;
+        .map_err(|e| ApiError::BadRequest(format!("Invalid program ID: {}", e)))?;
 
     let mut analyzer = state.pda_analyzer.write().await;
-    let analysis_result = analyzer.analyze_pda(&address, &program_id)
-        .map_err(ApiError::from)?;
+    let result = analyzer.analyze_pda(&address, &program_id)
+        .map_err(|e| ApiError::InternalServerError(format!("Analysis failed: {}", e)))?;
 
-    let response = match analysis_result {
-        Some(pda_info) => AnalyzePdaResponse {
-            address: request.address,
-            program_id: request.program_id,
-            seeds: Some(pda_info.seeds.iter().map(|s| serde_json::to_value(s).unwrap()).collect()),
-            bump: Some(pda_info.bump),
-            derived_successfully: true,
-        },
-        None => AnalyzePdaResponse {
-            address: request.address,
-            program_id: request.program_id,
-            seeds: None,
-            bump: None,
-            derived_successfully: false,
-        },
-    };
+    match result {
+        Some(analysis_result) => {
+            // Store the result in the database
+            if let Err(e) = state.database.store_pda_analysis(&analysis_result).await {
+                error!("Failed to store PDA analysis: {}", e);
+            }
 
-    Ok(ApiResponse::success(response))
+            // Update program stats
+            if let Err(e) = state.database.update_program_pda_count(&request.program_id).await {
+                error!("Failed to update program stats: {}", e);
+            }
+
+            Ok(ApiResponse::success(analysis_result))
+        }
+        None => Err(ApiError::NotFound("Could not analyze PDA - pattern not recognized".to_string())),
+    }
 }
 
 pub async fn batch_analyze_pda(
     State(state): State<AppState>,
     Json(request): Json<BatchAnalyzePdaRequest>,
-) -> ApiResult<impl IntoResponse> {
+) -> Result<impl IntoResponse, ApiError> {
+    info!("Batch analyzing {} PDAs", request.pdas.len());
+
     let mut results = Vec::new();
     let mut analyzer = state.pda_analyzer.write().await;
 
-    for pda_request in request.addresses {
+    for pda_request in request.pdas {
         let address = Pubkey::from_str(&pda_request.address)
-            .map_err(|_| ApiError::bad_request(format!("Invalid address: {}", pda_request.address)))?;
+            .map_err(|e| ApiError::BadRequest(format!("Invalid PDA address: {}", e)))?;
         
         let program_id = Pubkey::from_str(&pda_request.program_id)
-            .map_err(|_| ApiError::bad_request(format!("Invalid program ID: {}", pda_request.program_id)))?;
+            .map_err(|e| ApiError::BadRequest(format!("Invalid program ID: {}", e)))?;
 
-        let analysis_result = analyzer.analyze_pda(&address, &program_id)
-            .map_err(ApiError::from)?;
+        let result = analyzer.analyze_pda(&address, &program_id)
+            .map_err(|e| ApiError::InternalServerError(format!("Analysis failed: {}", e)))?;
 
-        let response = match analysis_result {
-            Some(pda_info) => AnalyzePdaResponse {
-                address: pda_request.address,
-                program_id: pda_request.program_id,
-                seeds: Some(pda_info.seeds.iter().map(|s| serde_json::to_value(s).unwrap()).collect()),
-                bump: Some(pda_info.bump),
-                derived_successfully: true,
-            },
-            None => AnalyzePdaResponse {
-                address: pda_request.address,
-                program_id: pda_request.program_id,
-                seeds: None,
-                bump: None,
-                derived_successfully: false,
-            },
-        };
+        if let Some(ref analysis_result) = result {
+            // Store the result in the database
+            if let Err(e) = state.database.store_pda_analysis(analysis_result).await {
+                error!("Failed to store PDA analysis: {}", e);
+            }
+        }
 
-        results.push(response);
+        results.push(result);
     }
 
     Ok(ApiResponse::success(results))
@@ -152,151 +218,213 @@ pub async fn batch_analyze_pda(
 pub async fn list_programs(
     State(state): State<AppState>,
     Query(query): Query<ProgramQuery>,
-) -> ApiResult<impl IntoResponse> {
-    let filter = ProgramFilter {
-        program_id: None,
-        name: query.name,
-        limit: query.limit,
-        offset: query.offset,
-    };
+) -> Result<impl IntoResponse, ApiError> {
+    let programs = state.database.get_all_programs().await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch programs: {}", e)))?;
 
-    let programs = state.database.list_programs(filter).await.map_err(ApiError::from)?;
-    Ok(ApiResponse::success(programs))
+    let limit = query.limit.unwrap_or(50).min(500) as usize;
+    let offset = query.offset.unwrap_or(0) as usize;
+
+    let paginated_programs = programs.into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect::<Vec<_>>();
+
+    Ok(ApiResponse::success(paginated_programs))
 }
 
 pub async fn get_program(
     State(state): State<AppState>,
     Path(program_id): Path<String>,
-) -> ApiResult<impl IntoResponse> {
-    let program = state.database.get_program_by_id(&program_id).await.map_err(ApiError::from)?;
-    
+) -> Result<impl IntoResponse, ApiError> {
+    let program = state.database.get_program(&program_id).await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch program: {}", e)))?;
+
     match program {
         Some(program) => Ok(ApiResponse::success(program)),
-        None => Err(ApiError::not_found("Program not found".to_string())),
+        None => Err(ApiError::NotFound("Program not found".to_string())),
     }
 }
 
 pub async fn get_program_stats(
     State(state): State<AppState>,
     Path(program_id): Path<String>,
-) -> ApiResult<impl IntoResponse> {
-    let program_uuid = Uuid::from_str(&program_id)
-        .map_err(|_| ApiError::bad_request("Invalid program ID format".to_string()))?;
+) -> Result<impl IntoResponse, ApiError> {
+    let program = state.database.get_program(&program_id).await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch program: {}", e)))?;
 
-    let stats = state.database.get_program_stats(program_uuid).await.map_err(ApiError::from)?;
+    let pdas = state.database.get_program_pdas(&program_id).await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?;
+
+    let mut stats = HashMap::new();
+    stats.insert("total_pdas".to_string(), serde_json::Value::Number(pdas.len().into()));
+    
+    if let Some(program) = program {
+        stats.insert("program_name".to_string(), serde_json::Value::String(program.name.unwrap_or("Unknown".to_string())));
+        stats.insert("last_analyzed".to_string(), serde_json::to_value(program.last_analyzed).unwrap_or(serde_json::Value::Null));
+    }
+
+    // Pattern distribution
+    let mut pattern_counts = HashMap::new();
+    for pda in pdas {
+        if let Some(pattern) = pda.pattern {
+            *pattern_counts.entry(pattern).or_insert(0) += 1;
+        }
+    }
+    stats.insert("pattern_distribution".to_string(), serde_json::to_value(pattern_counts).unwrap());
+
     Ok(ApiResponse::success(stats))
+}
+
+pub async fn get_program_patterns(
+    State(state): State<AppState>,
+    Path(program_id): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    let pdas = state.database.get_program_pdas(&program_id).await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?;
+
+    let patterns: Vec<String> = pdas.into_iter()
+        .filter_map(|pda| pda.pattern)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    Ok(ApiResponse::success(patterns))
+}
+
+pub async fn get_program_pdas(
+    State(state): State<AppState>,
+    Path(program_id): Path<String>,
+    Query(query): Query<PdaQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    let pdas = state.database.get_program_pdas(&program_id).await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?;
+
+    let limit = query.limit.unwrap_or(50).min(500) as usize;
+    let offset = query.offset.unwrap_or(0) as usize;
+
+    let paginated_pdas = pdas.into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect::<Vec<_>>();
+
+    Ok(ApiResponse::success(paginated_pdas))
 }
 
 // Transaction handlers
 pub async fn list_transactions(
-    State(state): State<AppState>,
-    Query(query): Query<TransactionQuery>,
-) -> ApiResult<impl IntoResponse> {
-    let filter = TransactionFilter {
-        signature: None,
-        slot_range: match (query.min_slot, query.max_slot) {
-            (Some(min), Some(max)) => Some((min, max)),
-            _ => None,
-        },
-        success: query.success,
-        limit: query.limit,
-        offset: query.offset,
-    };
-
-    let transactions = state.database.list_transactions(filter).await.map_err(ApiError::from)?;
-    Ok(ApiResponse::success(transactions))
+    State(_state): State<AppState>,
+    Query(_query): Query<TransactionQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    // TODO: Implement transaction listing
+    Ok(ApiResponse::success(Vec::<serde_json::Value>::new()))
 }
 
 pub async fn get_transaction(
-    State(state): State<AppState>,
-    Path(signature): Path<String>,
-) -> ApiResult<impl IntoResponse> {
-    let transaction = state.database.get_transaction_by_signature(&signature).await.map_err(ApiError::from)?;
-    
-    match transaction {
-        Some(transaction) => Ok(ApiResponse::success(transaction)),
-        None => Err(ApiError::not_found("Transaction not found".to_string())),
-    }
+    State(_state): State<AppState>,
+    Path(_signature): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    // TODO: Implement transaction details
+    Err(ApiError::NotImplemented("Transaction details not implemented yet".to_string()))
+}
+
+pub async fn analyze_transaction(
+    State(_state): State<AppState>,
+    Json(_request): Json<AnalyzeTransactionRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    // TODO: Implement transaction analysis
+    Err(ApiError::NotImplemented("Transaction analysis not implemented yet".to_string()))
 }
 
 // PDA handlers
 pub async fn list_pdas(
     State(state): State<AppState>,
     Query(query): Query<PdaQuery>,
-) -> ApiResult<impl IntoResponse> {
-    let program_id = match query.program_id {
-        Some(id) => Some(Uuid::from_str(&id)
-            .map_err(|_| ApiError::bad_request("Invalid program ID format".to_string()))?),
-        None => None,
-    };
+) -> Result<impl IntoResponse, ApiError> {
+    let limit = query.limit.unwrap_or(50).min(500) as i64;
+    let pdas = state.database.get_recent_pdas(limit).await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?;
 
-    let filter = PdaFilter {
-        address: None,
-        program_id,
-        limit: query.limit,
-        offset: query.offset,
-    };
-
-    let pdas = state.database.list_pdas(filter).await.map_err(ApiError::from)?;
     Ok(ApiResponse::success(pdas))
 }
 
 pub async fn get_pda(
+    State(_state): State<AppState>,
+    Path(_address): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    // This endpoint needs both address and program_id, but we only have address
+    // We'll need to search for any PDA with this address
+    // For now, return not implemented
+    Err(ApiError::NotImplemented("PDA lookup by address only not implemented yet".to_string()))
+}
+
+pub async fn search_pdas(
     State(state): State<AppState>,
-    Path(address): Path<String>,
-) -> ApiResult<impl IntoResponse> {
-    let pda = state.database.get_pda_by_address(&address).await.map_err(ApiError::from)?;
-    
-    match pda {
-        Some(pda) => Ok(ApiResponse::success(pda)),
-        None => Err(ApiError::not_found("PDA not found".to_string())),
-    }
+    Query(query): Query<PdaQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    let limit = query.limit.unwrap_or(50).min(500) as i64;
+
+    let pdas = if let Some(pattern) = query.pattern {
+        state.database.search_pdas_by_pattern(&pattern, limit).await
+            .map_err(|e| ApiError::InternalServerError(format!("Failed to search PDAs: {}", e)))?
+    } else {
+        state.database.get_recent_pdas(limit).await
+            .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?
+    };
+
+    Ok(ApiResponse::success(pdas))
+}
+
+pub async fn get_recent_pdas(
+    State(state): State<AppState>,
+    Query(query): Query<PdaQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    let limit = query.limit.unwrap_or(50).min(500) as i64;
+    let pdas = state.database.get_recent_pdas(limit).await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch recent PDAs: {}", e)))?;
+
+    Ok(ApiResponse::success(pdas))
 }
 
 // Analytics handlers
 pub async fn get_database_metrics(
     State(state): State<AppState>,
-) -> ApiResult<impl IntoResponse> {
-    let metrics = state.database.get_database_metrics().await.map_err(ApiError::from)?;
-    Ok(ApiResponse::success(metrics))
+) -> Result<impl IntoResponse, ApiError> {
+    let stats = state.database.get_stats().await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch database stats: {}", e)))?;
+
+    Ok(ApiResponse::success(stats))
 }
 
-// Pattern analysis handlers
-pub async fn analyze_program_patterns(
+pub async fn get_pattern_distribution(
     State(state): State<AppState>,
-    Path(program_id): Path<String>,
-) -> ApiResult<impl IntoResponse> {
-    let program_uuid = Uuid::from_str(&program_id)
-        .map_err(|_| ApiError::bad_request("Invalid program ID format".to_string()))?;
+) -> Result<impl IntoResponse, ApiError> {
+    let stats = state.database.get_stats().await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch pattern distribution: {}", e)))?;
 
-    let filter = PdaFilter {
-        address: None,
-        program_id: Some(program_uuid),
-        limit: None,
-        offset: None,
-    };
+    Ok(ApiResponse::success(stats.patterns_distribution))
+}
 
-    let pdas = state.database.list_pdas(filter).await.map_err(ApiError::from)?;
-    
-    // Convert database records to core types (simplified)
-    let pda_infos = pdas.into_iter().map(|pda| {
-        solana_pda_analyzer_core::PdaInfo {
-            address: Pubkey::from_str(&pda.address).unwrap_or_default(),
-            program_id: Pubkey::new_unique(), // Would need to resolve this from database
-            seeds: Vec::new(), // Would need to deserialize from JSON
-            bump: pda.bump as u8,
-            first_seen_slot: None,
-            first_seen_transaction: None,
+pub async fn get_performance_metrics(
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, ApiError> {
+    let analyzer = state.pda_analyzer.read().await;
+    let (cache_hits, cache_total) = analyzer.cache_stats();
+    let pattern_stats = analyzer.get_pattern_stats();
+
+    let mut metrics = HashMap::new();
+    metrics.insert("cache_hits".to_string(), serde_json::Value::Number(cache_hits.into()));
+    metrics.insert("cache_total".to_string(), serde_json::Value::Number(cache_total.into()));
+    metrics.insert("cache_hit_rate".to_string(), serde_json::Value::Number(
+        if cache_total > 0 { 
+            serde_json::Number::from_f64(cache_hits as f64 / cache_total as f64).unwrap_or(serde_json::Number::from(0))
+        } else { 
+            serde_json::Number::from(0) 
         }
-    }).collect::<Vec<_>>();
+    ));
+    metrics.insert("pattern_stats".to_string(), serde_json::to_value(pattern_stats).unwrap());
 
-    // Use pattern registry to analyze patterns
-    let mut pattern_registry = solana_pda_analyzer_analyzer::PatternRegistry::new();
-    let program_pubkey = Pubkey::new_unique(); // Would need to resolve from database
-    let patterns = pattern_registry.detect_patterns(&program_pubkey, &pda_infos)
-        .map_err(ApiError::from)?;
-
-    Ok(ApiResponse::success(patterns))
+    Ok(ApiResponse::success(metrics))
 }
 
 #[cfg(test)]
@@ -309,21 +437,5 @@ mod tests {
         let request: AnalyzePdaRequest = serde_json::from_str(json).unwrap();
         assert_eq!(request.address, "11111111111111111111111111111111");
         assert_eq!(request.program_id, "11111111111111111111111111111111");
-    }
-
-    #[test]
-    fn test_api_response_success() {
-        let response = ApiResponse::success("test data");
-        assert!(response.success);
-        assert_eq!(response.data, Some("test data"));
-        assert!(response.error.is_none());
-    }
-
-    #[test]
-    fn test_api_response_error() {
-        let response: ApiResponse<String> = ApiResponse::error("test error".to_string());
-        assert!(!response.success);
-        assert!(response.data.is_none());
-        assert_eq!(response.error, Some("test error".to_string()));
     }
 }

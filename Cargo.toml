@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "crates/core",
-    "crates/cli"
+    "crates/cli",
+    # "crates/api"
 ]
 resolver = "2"
 
@@ -22,3 +23,9 @@ solana-program = "1.14"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["serde", "v4"] }
 spl-token = "3.5"
+# sqlx = { version = "0.6", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid", "migrate"] }
+axum = { version = "0.6", features = ["json"] }
+tower = "0.4"
+tower-http = { version = "0.4", features = ["cors", "trace"] }
+dotenvy = "0.15"
+# reqwest = { version = "0.11", features = ["json"], default-features = false }

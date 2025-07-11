@@ -16,3 +16,5 @@ hex = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 spl-token = { workspace = true }
+# sqlx = { workspace = true }
+tokio = { workspace = true }

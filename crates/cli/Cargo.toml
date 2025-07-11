@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 solana-pda-analyzer-core = { path = "../core" }
+# solana-pda-analyzer-api = { path = "../api" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }

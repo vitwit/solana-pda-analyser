@@ -1,34 +1,28 @@
-use crate::{create_router, AppState, middleware::*};
-use axum::{middleware, Router};
-use solana_pda_analyzer_core::{PdaAnalyzer, DatabaseManager};
+use crate::{create_simple_router, AppState, middleware::*};
+use axum::{middleware, Router, Server};
+use solana_pda_analyzer_core::PdaAnalyzer;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 use tracing::{info, error};
 use anyhow::Result;
-use solana_pda_analyzer_core::PdaAnalyzerError;
 
 #[derive(Debug, Clone)]
-pub struct ServerConfig {
+pub struct SimpleServerConfig {
     pub host: String,
     pub port: u16,
-    pub database_url: String,
     pub static_files_dir: Option<String>,
-    pub log_level: String,
 }
 
-impl ServerConfig {
+impl SimpleServerConfig {
     pub fn from_env() -> Result<Self> {
         Ok(Self {
             host: std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
             port: std::env::var("PORT")
                 .unwrap_or_else(|_| "8080".to_string())
                 .parse()
-                .map_err(|e| PdaAnalyzerError::ConfigurationError(format!("Invalid PORT: {}", e)))?,
-            database_url: std::env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "postgresql://postgres:password@localhost/solana_pda_analyzer".to_string()),
+                .unwrap_or(8080),
             static_files_dir: std::env::var("STATIC_FILES_DIR").ok(),
-            log_level: std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string()),
         })
     }
 
@@ -37,36 +31,27 @@ impl ServerConfig {
     }
 }
 
-impl Default for ServerConfig {
+impl Default for SimpleServerConfig {
     fn default() -> Self {
         Self {
             host: "127.0.0.1".to_string(),
             port: 8080,
-            database_url: "postgresql://postgres:password@localhost/solana_pda_analyzer".to_string(),
             static_files_dir: None,
-            log_level: "info".to_string(),
         }
     }
 }
 
-pub struct Server {
-    config: ServerConfig,
+pub struct SimpleServer {
+    config: SimpleServerConfig,
     app_state: AppState,
 }
 
-impl Server {
-    pub async fn new(config: ServerConfig) -> Result<Self> {
-        // Initialize database
-        let database = DatabaseManager::new(&config.database_url).await?;
-        
-        // Run migrations
-        database.migrate().await?;
-        
+impl SimpleServer {
+    pub async fn new(config: SimpleServerConfig) -> Result<Self> {
         // Initialize PDA analyzer
         let pda_analyzer = Arc::new(RwLock::new(PdaAnalyzer::new()));
         
         let app_state = AppState {
-            database: Arc::new(database),
             pda_analyzer,
         };
         
@@ -78,10 +63,10 @@ impl Server {
 
     pub async fn run(&self) -> Result<()> {
         let bind_address = self.config.bind_address();
-        info!("Starting server on {}", bind_address);
+        info!("Starting PDA Analyzer API server on {}", bind_address);
         
         // Create the main router
-        let mut app = create_router(self.app_state.clone());
+        let mut app = create_simple_router(self.app_state.clone());
         
         // Add middleware layers
         app = app
@@ -103,12 +88,15 @@ impl Server {
                 e
             })?;
         
-        info!("Server listening on {}", bind_address);
-        info!("API Documentation: http://{}/docs", bind_address);
-        info!("Health Check: http://{}/health", bind_address);
+        info!("🚀 PDA Analyzer API server listening on {}", bind_address);
+        info!("📖 API Documentation: http://{}/docs", bind_address);
+        info!("❤️  Health Check: http://{}/health", bind_address);
+        info!("🔍 Try analyzing a PDA: POST http://{}/api/v1/analyze/pda", bind_address);
         
         // Start the server
-        axum::serve(listener, app)
+        Server::from_tcp(listener.into_std().unwrap())
+            .unwrap()
+            .serve(app.into_make_service())
             .await
             .map_err(|e| {
                 error!("Server error: {}", e);
@@ -117,17 +105,9 @@ impl Server {
     }
 }
 
-pub async fn run_server(config: ServerConfig) -> Result<()> {
-    let server = Server::new(config).await?;
+pub async fn run_simple_server(config: SimpleServerConfig) -> Result<()> {
+    let server = SimpleServer::new(config).await?;
     server.run().await
-}
-
-// Health check for the server
-pub async fn health_check_server(config: &ServerConfig) -> Result<bool> {
-    // Simple health check without requiring HTTP client
-    // In a real implementation, this would make an HTTP request
-    // For now, we'll just return true if the config is valid
-    Ok(!config.bind_address().is_empty())
 }
 
 #[cfg(test)]
@@ -135,20 +115,10 @@ mod tests {
     use super::*;
     
     #[test]
-    fn test_server_config_default() {
-        let config = ServerConfig::default();
+    fn test_simple_server_config_default() {
+        let config = SimpleServerConfig::default();
         assert_eq!(config.host, "127.0.0.1");
         assert_eq!(config.port, 8080);
         assert_eq!(config.bind_address(), "127.0.0.1:8080");
-    }
-    
-    #[test]
-    fn test_server_config_bind_address() {
-        let config = ServerConfig {
-            host: "0.0.0.0".to_string(),
-            port: 3000,
-            ..Default::default()
-        };
-        assert_eq!(config.bind_address(), "0.0.0.0:3000");
     }
 }
