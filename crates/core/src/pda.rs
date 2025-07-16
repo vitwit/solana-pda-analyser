@@ -189,6 +189,9 @@ impl PdaAnalyzer {
             return Ok(Some(result));
         }
 
+        // 7. If no pattern matches, return None
+        // Future: implement general brute force analysis as fallback
+
         Ok(None)
     }
 

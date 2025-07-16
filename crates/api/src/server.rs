@@ -1,4 +1,5 @@
-use crate::{create_router, AppState, middleware::*};
+use crate::{create_router, middleware::*};
+use crate::routes::AppState;
 use axum::{middleware, Router};
 use solana_pda_analyzer_core::{PdaAnalyzer, DatabaseManager};
 use std::sync::Arc;

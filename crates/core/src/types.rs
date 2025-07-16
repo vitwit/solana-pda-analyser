@@ -51,7 +51,7 @@ impl SeedValue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PdaPattern {
+pub struct PdaPatternTemplate {
     pub id: Uuid,
     pub program_id: Pubkey,
     pub pattern_name: String,

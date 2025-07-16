@@ -1,5 +1,5 @@
 use crate::{create_simple_router, AppState, middleware::*};
-use axum::{middleware, Router, Server};
+use axum::middleware;
 use solana_pda_analyzer_core::PdaAnalyzer;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -94,7 +94,7 @@ impl SimpleServer {
         info!("🔍 Try analyzing a PDA: POST http://{}/api/v1/analyze/pda", bind_address);
         
         // Start the server
-        Server::from_tcp(listener.into_std().unwrap())
+        axum::Server::from_tcp(listener.into_std().unwrap())
             .unwrap()
             .serve(app.into_make_service())
             .await

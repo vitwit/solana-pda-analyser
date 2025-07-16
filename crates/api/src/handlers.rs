@@ -1,4 +1,5 @@
-use crate::{ApiError, ApiResponse, AppState};
+use crate::{ApiError, ApiResponse};
+use crate::routes::AppState;
 use axum::{
     extract::{Path, Query, State},
     Json,
@@ -155,14 +156,14 @@ pub async fn analyze_pda(
     info!("Analyzing PDA: {} for program: {}", request.address, request.program_id);
 
     let address = Pubkey::from_str(&request.address)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid PDA address: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(format!("Invalid PDA address: {}", e)))?;
     
     let program_id = Pubkey::from_str(&request.program_id)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid program ID: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(format!("Invalid program ID: {}", e)))?;
 
     let mut analyzer = state.pda_analyzer.write().await;
     let result = analyzer.analyze_pda(&address, &program_id)
-        .map_err(|e| ApiError::InternalServerError(format!("Analysis failed: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Analysis failed: {}", e)))?;
 
     match result {
         Some(analysis_result) => {
@@ -178,7 +179,7 @@ pub async fn analyze_pda(
 
             Ok(ApiResponse::success(analysis_result))
         }
-        None => Err(ApiError::NotFound("Could not analyze PDA - pattern not recognized".to_string())),
+        None => Err(ApiError::not_found("Could not analyze PDA - pattern not recognized".to_string())),
     }
 }
 
@@ -193,13 +194,13 @@ pub async fn batch_analyze_pda(
 
     for pda_request in request.pdas {
         let address = Pubkey::from_str(&pda_request.address)
-            .map_err(|e| ApiError::BadRequest(format!("Invalid PDA address: {}", e)))?;
+            .map_err(|e| ApiError::bad_request(format!("Invalid PDA address: {}", e)))?;
         
         let program_id = Pubkey::from_str(&pda_request.program_id)
-            .map_err(|e| ApiError::BadRequest(format!("Invalid program ID: {}", e)))?;
+            .map_err(|e| ApiError::bad_request(format!("Invalid program ID: {}", e)))?;
 
         let result = analyzer.analyze_pda(&address, &program_id)
-            .map_err(|e| ApiError::InternalServerError(format!("Analysis failed: {}", e)))?;
+            .map_err(|e| ApiError::internal_server_error(format!("Analysis failed: {}", e)))?;
 
         if let Some(ref analysis_result) = result {
             // Store the result in the database
@@ -220,7 +221,7 @@ pub async fn list_programs(
     Query(query): Query<ProgramQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
     let programs = state.database.get_all_programs().await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch programs: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch programs: {}", e)))?;
 
     let limit = query.limit.unwrap_or(50).min(500) as usize;
     let offset = query.offset.unwrap_or(0) as usize;
@@ -238,11 +239,11 @@ pub async fn get_program(
     Path(program_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     let program = state.database.get_program(&program_id).await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch program: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch program: {}", e)))?;
 
     match program {
         Some(program) => Ok(ApiResponse::success(program)),
-        None => Err(ApiError::NotFound("Program not found".to_string())),
+        None => Err(ApiError::not_found("Program not found".to_string())),
     }
 }
 
@@ -251,10 +252,10 @@ pub async fn get_program_stats(
     Path(program_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     let program = state.database.get_program(&program_id).await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch program: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch program: {}", e)))?;
 
     let pdas = state.database.get_program_pdas(&program_id).await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch PDAs: {}", e)))?;
 
     let mut stats = HashMap::new();
     stats.insert("total_pdas".to_string(), serde_json::Value::Number(pdas.len().into()));
@@ -281,7 +282,7 @@ pub async fn get_program_patterns(
     Path(program_id): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     let pdas = state.database.get_program_pdas(&program_id).await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch PDAs: {}", e)))?;
 
     let patterns: Vec<String> = pdas.into_iter()
         .filter_map(|pda| pda.pattern)
@@ -298,7 +299,7 @@ pub async fn get_program_pdas(
     Query(query): Query<PdaQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
     let pdas = state.database.get_program_pdas(&program_id).await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch PDAs: {}", e)))?;
 
     let limit = query.limit.unwrap_or(50).min(500) as usize;
     let offset = query.offset.unwrap_or(0) as usize;
@@ -325,7 +326,7 @@ pub async fn get_transaction(
     Path(_signature): Path<String>,
 ) -> Result<impl IntoResponse, ApiError> {
     // TODO: Implement transaction details
-    Err(ApiError::NotImplemented("Transaction details not implemented yet".to_string()))
+    Err(ApiError::not_implemented("Transaction details not implemented yet".to_string()))
 }
 
 pub async fn analyze_transaction(
@@ -333,7 +334,7 @@ pub async fn analyze_transaction(
     Json(_request): Json<AnalyzeTransactionRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     // TODO: Implement transaction analysis
-    Err(ApiError::NotImplemented("Transaction analysis not implemented yet".to_string()))
+    Err(ApiError::not_implemented("Transaction analysis not implemented yet".to_string()))
 }
 
 // PDA handlers
@@ -343,7 +344,7 @@ pub async fn list_pdas(
 ) -> Result<impl IntoResponse, ApiError> {
     let limit = query.limit.unwrap_or(50).min(500) as i64;
     let pdas = state.database.get_recent_pdas(limit).await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch PDAs: {}", e)))?;
 
     Ok(ApiResponse::success(pdas))
 }
@@ -355,7 +356,7 @@ pub async fn get_pda(
     // This endpoint needs both address and program_id, but we only have address
     // We'll need to search for any PDA with this address
     // For now, return not implemented
-    Err(ApiError::NotImplemented("PDA lookup by address only not implemented yet".to_string()))
+    Err::<serde_json::Value, ApiError>(ApiError::not_implemented("PDA lookup by address only not implemented yet".to_string()))
 }
 
 pub async fn search_pdas(
@@ -366,10 +367,10 @@ pub async fn search_pdas(
 
     let pdas = if let Some(pattern) = query.pattern {
         state.database.search_pdas_by_pattern(&pattern, limit).await
-            .map_err(|e| ApiError::InternalServerError(format!("Failed to search PDAs: {}", e)))?
+            .map_err(|e| ApiError::internal_server_error(format!("Failed to search PDAs: {}", e)))?
     } else {
         state.database.get_recent_pdas(limit).await
-            .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch PDAs: {}", e)))?
+            .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch PDAs: {}", e)))?
     };
 
     Ok(ApiResponse::success(pdas))
@@ -381,7 +382,7 @@ pub async fn get_recent_pdas(
 ) -> Result<impl IntoResponse, ApiError> {
     let limit = query.limit.unwrap_or(50).min(500) as i64;
     let pdas = state.database.get_recent_pdas(limit).await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch recent PDAs: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch recent PDAs: {}", e)))?;
 
     Ok(ApiResponse::success(pdas))
 }
@@ -391,7 +392,7 @@ pub async fn get_database_metrics(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, ApiError> {
     let stats = state.database.get_stats().await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch database stats: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch database stats: {}", e)))?;
 
     Ok(ApiResponse::success(stats))
 }
@@ -400,7 +401,7 @@ pub async fn get_pattern_distribution(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, ApiError> {
     let stats = state.database.get_stats().await
-        .map_err(|e| ApiError::InternalServerError(format!("Failed to fetch pattern distribution: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch pattern distribution: {}", e)))?;
 
     Ok(ApiResponse::success(stats.patterns_distribution))
 }
