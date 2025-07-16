@@ -7,7 +7,7 @@ use std::time::Instant;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-pub async fn logging_middleware(request: Request, next: Next) -> Response {
+pub async fn logging_middleware<B>(request: Request<B>, next: Next<B>) -> Response {
     let start = Instant::now();
     let method = request.method().clone();
     let uri = request.uri().clone();
@@ -50,7 +50,7 @@ pub async fn logging_middleware(request: Request, next: Next) -> Response {
     response
 }
 
-pub async fn rate_limiting_middleware(request: Request, next: Next) -> Result<Response, StatusCode> {
+pub async fn rate_limiting_middleware<B>(request: Request<B>, next: Next<B>) -> Result<Response, StatusCode> {
     // Simple rate limiting based on IP address
     // In a production system, you'd want to use a proper rate limiting solution
     // like Redis or a dedicated rate limiting service
@@ -64,7 +64,7 @@ pub async fn rate_limiting_middleware(request: Request, next: Next) -> Result<Re
     Ok(next.run(request).await)
 }
 
-pub async fn security_headers_middleware(request: Request, next: Next) -> Response {
+pub async fn security_headers_middleware<B>(request: Request<B>, next: Next<B>) -> Response {
     let mut response = next.run(request).await;
     
     let headers = response.headers_mut();
@@ -82,7 +82,7 @@ pub async fn security_headers_middleware(request: Request, next: Next) -> Respon
     response
 }
 
-pub async fn cors_middleware(request: Request, next: Next) -> Response {
+pub async fn cors_middleware<B>(request: Request<B>, next: Next<B>) -> Response {
     let origin = request.headers().get("Origin").cloned();
     let mut response = next.run(request).await;
     
@@ -108,7 +108,7 @@ pub async fn cors_middleware(request: Request, next: Next) -> Response {
     response
 }
 
-pub async fn request_validation_middleware(request: Request, next: Next) -> Result<Response, StatusCode> {
+pub async fn request_validation_middleware<B>(request: Request<B>, next: Next<B>) -> Result<Response, StatusCode> {
     // Basic request validation
     let headers = request.headers();
     let method = request.method();

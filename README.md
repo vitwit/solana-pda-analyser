@@ -4,9 +4,10 @@ A comprehensive, production-ready tool for analyzing Solana Program Derived Addr
 
 ## Features
 
-- ** Advanced PDA Analysis**: Derive seeds and analyze PDA patterns for any Solana program
-- ** Real-World Examples**: Pre-loaded with examples from major protocols (SPL Token, Metaplex, Serum, Raydium)
-- ** Pattern Recognition**: Automatically detect and classify common PDA seed patterns
+- **🔍 Advanced PDA Analysis**: Derive seeds and analyze PDA patterns for any Solana program
+- **🌐 REST API Server**: Full-featured HTTP API for real-time PDA analysis (see [API_EXAMPLES.md](API_EXAMPLES.md))
+- **📊 Real-World Examples**: Pre-loaded with examples from major protocols (SPL Token, Metaplex, Serum, Raydium)
+- **🎯 Pattern Recognition**: Automatically detect and classify common PDA seed patterns
 
 ## 📊 Analysis Output Sample
 
@@ -97,15 +98,26 @@ A comprehensive, production-ready tool for analyzing Solana Program Derived Addr
    make test-all
    ```
 
-6. **Start the server**
+6. **Start the API server**
    ```bash
    make run
    # or manually: ./target/release/pda-analyzer serve
    ```
 
-7. **Access the web interface**
+7. **Test the API**
+   ```bash
+   # Health check
+   curl http://localhost:8080/health
    
-   Open your browser to `http://localhost:8080`
+   # Analyze a PDA
+   curl -X POST http://localhost:8080/api/v1/analyze/pda \
+     -H "Content-Type: application/json" \
+     -d '{"address": "SysvarRent111111111111111111111111111111111", "program_id": "11111111111111111111111111111112"}'
+   ```
+
+8. **Access the API documentation**
+   
+   Open your browser to `http://localhost:8080/docs`
 
 ### 🐳 Docker Setup (Alternative)
 
@@ -393,7 +405,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **🐛 Bug Reports**: [GitHub Issues](https://github.com/your-username/solana-pda-analyzer/issues)
-- **💡 Feature Requests**: [GitHub Discussions](https://github.com/your-username/solana-pda-analyzer/discussions)
-- **📖 Documentation**: [Project Wiki](https://github.com/your-username/solana-pda-analyzer/wiki)
-- **💬 Community**: [Discord Channel](https://discord.gg/your-server)
+- **🐛 Bug Reports**: [GitHub Issues](https://github.com/vitwit/solana-pda-analyzer/issues)
+- **💡 Feature Requests**: [GitHub Discussions](https://github.com/vitwit/solana-pda-analyzer/discussions)
+- **📖 Documentation**: [Project Wiki](https://github.com/vitwit/solana-pda-analyzer/wiki)
+- **💬 Community**: [Telegram Channel](https://t.co/69gF5Se6IW)

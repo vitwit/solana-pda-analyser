@@ -1,15 +1,14 @@
 use crate::{ApiError, ApiResponse, AppState};
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     Json,
     response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
-use solana_pda_analyzer_core::PdaAnalysisResult;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use std::collections::HashMap;
-use tracing::{info, error};
+use tracing::info;
 
 // Request/Response types
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,21 +97,21 @@ pub async fn analyze_pda(
     info!("Analyzing PDA: {} for program: {}", request.address, request.program_id);
 
     let address = Pubkey::from_str(&request.address)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid PDA address: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(format!("Invalid PDA address: {}", e)))?;
     
     let program_id = Pubkey::from_str(&request.program_id)
-        .map_err(|e| ApiError::BadRequest(format!("Invalid program ID: {}", e)))?;
+        .map_err(|e| ApiError::bad_request(format!("Invalid program ID: {}", e)))?;
 
     let mut analyzer = state.pda_analyzer.write().await;
     let result = analyzer.analyze_pda(&address, &program_id)
-        .map_err(|e| ApiError::InternalServerError(format!("Analysis failed: {}", e)))?;
+        .map_err(|e| ApiError::internal_server_error(format!("Analysis failed: {}", e)))?;
 
     match result {
         Some(analysis_result) => {
             info!("PDA analysis successful for {}", request.address);
             Ok(ApiResponse::success(analysis_result))
         }
-        None => Err(ApiError::NotFound("Could not analyze PDA - pattern not recognized".to_string())),
+        None => Err(ApiError::not_found("Could not analyze PDA - pattern not recognized".to_string())),
     }
 }
 
@@ -127,13 +126,13 @@ pub async fn batch_analyze_pda(
 
     for pda_request in request.pdas {
         let address = Pubkey::from_str(&pda_request.address)
-            .map_err(|e| ApiError::BadRequest(format!("Invalid PDA address: {}", e)))?;
+            .map_err(|e| ApiError::bad_request(format!("Invalid PDA address: {}", e)))?;
         
         let program_id = Pubkey::from_str(&pda_request.program_id)
-            .map_err(|e| ApiError::BadRequest(format!("Invalid program ID: {}", e)))?;
+            .map_err(|e| ApiError::bad_request(format!("Invalid program ID: {}", e)))?;
 
         let result = analyzer.analyze_pda(&address, &program_id)
-            .map_err(|e| ApiError::InternalServerError(format!("Analysis failed: {}", e)))?;
+            .map_err(|e| ApiError::internal_server_error(format!("Analysis failed: {}", e)))?;
 
         results.push(result);
     }
@@ -165,18 +164,18 @@ pub async fn get_performance_metrics(
 }
 
 // Stub handlers for future implementation
-pub async fn list_programs() -> Result<impl IntoResponse, ApiError> {
-    Err(ApiError::NotImplemented("Programs listing not implemented yet - database required".to_string()))
+pub async fn list_programs() -> Result<ApiResponse<Vec<String>>, ApiError> {
+    Err(ApiError::not_implemented("Programs listing not implemented yet - database required".to_string()))
 }
 
-pub async fn get_program(_program_id: Path<String>) -> Result<impl IntoResponse, ApiError> {
-    Err(ApiError::NotImplemented("Program details not implemented yet - database required".to_string()))
+pub async fn get_program(_program_id: Path<String>) -> Result<ApiResponse<serde_json::Value>, ApiError> {
+    Err(ApiError::not_implemented("Program details not implemented yet - database required".to_string()))
 }
 
-pub async fn list_pdas() -> Result<impl IntoResponse, ApiError> {
-    Err(ApiError::NotImplemented("PDAs listing not implemented yet - database required".to_string()))
+pub async fn list_pdas() -> Result<ApiResponse<Vec<serde_json::Value>>, ApiError> {
+    Err(ApiError::not_implemented("PDAs listing not implemented yet - database required".to_string()))
 }
 
-pub async fn get_database_metrics() -> Result<impl IntoResponse, ApiError> {
-    Err(ApiError::NotImplemented("Database metrics not implemented yet - database required".to_string()))
+pub async fn get_database_metrics() -> Result<ApiResponse<serde_json::Value>, ApiError> {
+    Err(ApiError::not_implemented("Database metrics not implemented yet - database required".to_string()))
 }
