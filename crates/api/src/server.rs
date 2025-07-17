@@ -1,7 +1,8 @@
 use crate::{create_router, middleware::*};
 use crate::routes::AppState;
 use axum::{middleware, Router};
-use solana_pda_analyzer_core::{PdaAnalyzer, DatabaseManager};
+use solana_pda_analyzer_core::PdaAnalyzer;
+use solana_pda_analyzer_database::DatabaseRepository as DatabaseManager;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
@@ -58,7 +59,7 @@ pub struct Server {
 impl Server {
     pub async fn new(config: ServerConfig) -> Result<Self> {
         // Initialize database
-        let database = DatabaseManager::new(&config.database_url).await?;
+        let database = DatabaseManager::from_url(&config.database_url).await?;
         
         // Run migrations
         database.migrate().await?;
@@ -109,7 +110,9 @@ impl Server {
         info!("Health Check: http://{}/health", bind_address);
         
         // Start the server
-        axum::serve(listener, app)
+        axum::Server::from_tcp(listener.into_std().unwrap())
+            .unwrap()
+            .serve(app.into_make_service())
             .await
             .map_err(|e| {
                 error!("Server error: {}", e);

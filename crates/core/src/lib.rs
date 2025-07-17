@@ -9,3 +9,6 @@ pub use transaction::*;
 pub use error::*;
 pub use types::{PdaInfo, SeedValue, PdaPatternTemplate, SeedTemplate, TransactionAnalysis, PdaInteraction, InteractionType, ProgramInfo, SeedDerivationAttempt};
 // pub use database::*;
+
+// Export database types for API compatibility
+// pub use solana_pda_analyzer_database::{DatabaseMetrics as DatabaseStats, ProgramRecord as DbProgram, PdaRecord as DbPdaInfo, DatabaseRepository as DatabaseManager};

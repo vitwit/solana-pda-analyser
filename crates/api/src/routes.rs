@@ -4,7 +4,8 @@ use axum::{
     Router,
 };
 use tower_http::cors::CorsLayer;
-use solana_pda_analyzer_core::{PdaAnalyzer, DatabaseManager};
+use solana_pda_analyzer_core::PdaAnalyzer;
+use solana_pda_analyzer_database::DatabaseRepository as DatabaseManager;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 

@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
 use solana_pda_analyzer_core::PdaAnalyzer;
-use solana_pda_analyzer_api::{SimpleServerConfig, run_simple_server, ServerConfig, run_server};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use tracing::{info, Level};
@@ -27,21 +26,6 @@ enum Commands {
     },
     /// Run example analyses
     Examples,
-    /// Start the API server
-    Serve {
-        /// Host to bind to
-        #[clap(long, default_value = "127.0.0.1")]
-        host: String,
-        /// Port to bind to
-        #[clap(long, default_value = "8080")]
-        port: u16,
-        /// Enable database support
-        #[clap(long)]
-        database: bool,
-        /// Database URL (required if --database is used)
-        #[clap(long)]
-        database_url: Option<String>,
-    },
     /// Show version information
     Version,
 }
@@ -62,9 +46,6 @@ async fn main() -> Result<()> {
         }
         Commands::Examples => {
             run_examples().await?;
-        }
-        Commands::Serve { host, port, database, database_url } => {
-            start_server(host, port, database, database_url).await?;
         }
         Commands::Version => {
             println!("Solana PDA Analyzer v{}", env!("CARGO_PKG_VERSION"));
@@ -211,43 +192,6 @@ fn create_metaplex_pda(mint: &str) -> Result<(String, String)> {
     Ok((pda_address.to_string(), metadata_program.to_string()))
 }
 
-async fn start_server(host: String, port: u16, database: bool, database_url: Option<String>) -> Result<()> {
-    println!("🚀 Starting Solana PDA Analyzer API Server");
-    println!("============================================");
-    
-    if database {
-        println!("📊 Database mode enabled");
-        let db_url = database_url.unwrap_or_else(|| {
-            "postgresql://postgres:password@localhost/solana_pda_analyzer".to_string()
-        });
-        
-        let config = ServerConfig {
-            host,
-            port,
-            database_url: db_url,
-            static_files_dir: Some("web".to_string()),
-            log_level: "info".to_string(),
-        };
-        
-        info!("Server configuration: {}:{}", config.host, config.port);
-        info!("Database URL: {}", config.database_url);
-        info!("Web interface: http://{}:{}/static/index.html", config.host, config.port);
-        
-        run_server(config).await
-    } else {
-        println!("💾 Simple mode (no database)");
-        let config = SimpleServerConfig {
-            host,
-            port,
-            static_files_dir: Some("web".to_string()),
-        };
-        
-        info!("Server configuration: {}:{}", config.host, config.port);
-        info!("Web interface: http://{}:{}/static/index.html", config.host, config.port);
-        
-        run_simple_server(config).await
-    }
-}
 
 #[cfg(test)]
 mod tests {

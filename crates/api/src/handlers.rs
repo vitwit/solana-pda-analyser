@@ -6,7 +6,8 @@ use axum::{
     response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
-use solana_pda_analyzer_core::{PdaAnalysisResult, DatabaseStats, DbPdaInfo, DbProgram};
+use solana_pda_analyzer_core::PdaAnalysisResult;
+use solana_pda_analyzer_database::{DatabaseMetrics as DatabaseStats, PdaRecord as DbPdaInfo, ProgramRecord as DbProgram};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use std::collections::HashMap;
@@ -177,7 +178,7 @@ pub async fn analyze_pda(
                 error!("Failed to update program stats: {}", e);
             }
 
-            Ok(ApiResponse::success(analysis_result))
+            Ok(Json(ApiResponse::success(analysis_result)))
         }
         None => Err(ApiError::not_found("Could not analyze PDA - pattern not recognized".to_string())),
     }
@@ -212,7 +213,7 @@ pub async fn batch_analyze_pda(
         results.push(result);
     }
 
-    Ok(ApiResponse::success(results))
+    Ok(Json(ApiResponse::success(results)))
 }
 
 // Program handlers
@@ -231,7 +232,7 @@ pub async fn list_programs(
         .take(limit)
         .collect::<Vec<_>>();
 
-    Ok(ApiResponse::success(paginated_programs))
+    Ok(Json(ApiResponse::success(paginated_programs)))
 }
 
 pub async fn get_program(
@@ -242,7 +243,7 @@ pub async fn get_program(
         .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch program: {}", e)))?;
 
     match program {
-        Some(program) => Ok(ApiResponse::success(program)),
+        Some(program) => Ok(Json(ApiResponse::success(program))),
         None => Err(ApiError::not_found("Program not found".to_string())),
     }
 }
@@ -274,7 +275,7 @@ pub async fn get_program_stats(
     }
     stats.insert("pattern_distribution".to_string(), serde_json::to_value(pattern_counts).unwrap());
 
-    Ok(ApiResponse::success(stats))
+    Ok(Json(ApiResponse::success(stats)))
 }
 
 pub async fn get_program_patterns(
@@ -290,7 +291,7 @@ pub async fn get_program_patterns(
         .into_iter()
         .collect();
 
-    Ok(ApiResponse::success(patterns))
+    Ok(Json(ApiResponse::success(patterns)))
 }
 
 pub async fn get_program_pdas(
@@ -309,7 +310,7 @@ pub async fn get_program_pdas(
         .take(limit)
         .collect::<Vec<_>>();
 
-    Ok(ApiResponse::success(paginated_pdas))
+    Ok(Json(ApiResponse::success(paginated_pdas)))
 }
 
 // Transaction handlers
@@ -318,7 +319,7 @@ pub async fn list_transactions(
     Query(_query): Query<TransactionQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
     // TODO: Implement transaction listing
-    Ok(ApiResponse::success(Vec::<serde_json::Value>::new()))
+    Ok(Json(ApiResponse::success(Vec::<serde_json::Value>::new())))
 }
 
 pub async fn get_transaction(
@@ -346,7 +347,7 @@ pub async fn list_pdas(
     let pdas = state.database.get_recent_pdas(limit).await
         .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch PDAs: {}", e)))?;
 
-    Ok(ApiResponse::success(pdas))
+    Ok(Json(ApiResponse::success(pdas)))
 }
 
 pub async fn get_pda(
@@ -356,7 +357,7 @@ pub async fn get_pda(
     // This endpoint needs both address and program_id, but we only have address
     // We'll need to search for any PDA with this address
     // For now, return not implemented
-    Err::<serde_json::Value, ApiError>(ApiError::not_implemented("PDA lookup by address only not implemented yet".to_string()))
+    Err(ApiError::not_implemented("PDA lookup by address only not implemented yet".to_string()))
 }
 
 pub async fn search_pdas(
@@ -373,7 +374,7 @@ pub async fn search_pdas(
             .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch PDAs: {}", e)))?
     };
 
-    Ok(ApiResponse::success(pdas))
+    Ok(Json(ApiResponse::success(pdas)))
 }
 
 pub async fn get_recent_pdas(
@@ -384,7 +385,7 @@ pub async fn get_recent_pdas(
     let pdas = state.database.get_recent_pdas(limit).await
         .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch recent PDAs: {}", e)))?;
 
-    Ok(ApiResponse::success(pdas))
+    Ok(Json(ApiResponse::success(pdas)))
 }
 
 // Analytics handlers
@@ -394,7 +395,7 @@ pub async fn get_database_metrics(
     let stats = state.database.get_stats().await
         .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch database stats: {}", e)))?;
 
-    Ok(ApiResponse::success(stats))
+    Ok(Json(ApiResponse::success(stats)))
 }
 
 pub async fn get_pattern_distribution(
@@ -403,7 +404,7 @@ pub async fn get_pattern_distribution(
     let stats = state.database.get_stats().await
         .map_err(|e| ApiError::internal_server_error(format!("Failed to fetch pattern distribution: {}", e)))?;
 
-    Ok(ApiResponse::success(stats.patterns_distribution))
+    Ok(Json(ApiResponse::success(stats.patterns_distribution)))
 }
 
 pub async fn get_performance_metrics(
@@ -425,7 +426,7 @@ pub async fn get_performance_metrics(
     ));
     metrics.insert("pattern_stats".to_string(), serde_json::to_value(pattern_stats).unwrap());
 
-    Ok(ApiResponse::success(metrics))
+    Ok(Json(ApiResponse::success(metrics)))
 }
 
 #[cfg(test)]

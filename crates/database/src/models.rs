@@ -193,25 +193,22 @@ pub struct DatabaseMetrics {
     pub database_size_mb: f64,
 }
 
-impl From<solana_pda_analyzer_core::InteractionType> for String {
-    fn from(interaction_type: solana_pda_analyzer_core::InteractionType) -> Self {
-        match interaction_type {
-            solana_pda_analyzer_core::InteractionType::Read => "read".to_string(),
-            solana_pda_analyzer_core::InteractionType::Write => "write".to_string(),
-            solana_pda_analyzer_core::InteractionType::Create => "create".to_string(),
-            solana_pda_analyzer_core::InteractionType::Close => "close".to_string(),
-        }
+// Helper functions to convert between InteractionType and String
+pub fn interaction_type_to_string(interaction_type: solana_pda_analyzer_core::InteractionType) -> String {
+    match interaction_type {
+        solana_pda_analyzer_core::InteractionType::Read => "read".to_string(),
+        solana_pda_analyzer_core::InteractionType::Write => "write".to_string(),
+        solana_pda_analyzer_core::InteractionType::Create => "create".to_string(),
+        solana_pda_analyzer_core::InteractionType::Close => "close".to_string(),
     }
 }
 
-impl From<String> for solana_pda_analyzer_core::InteractionType {
-    fn from(s: String) -> Self {
-        match s.as_str() {
-            "read" => solana_pda_analyzer_core::InteractionType::Read,
-            "write" => solana_pda_analyzer_core::InteractionType::Write,
-            "create" => solana_pda_analyzer_core::InteractionType::Create,
-            "close" => solana_pda_analyzer_core::InteractionType::Close,
-            _ => solana_pda_analyzer_core::InteractionType::Read,
-        }
+pub fn string_to_interaction_type(s: String) -> solana_pda_analyzer_core::InteractionType {
+    match s.as_str() {
+        "read" => solana_pda_analyzer_core::InteractionType::Read,
+        "write" => solana_pda_analyzer_core::InteractionType::Write,
+        "create" => solana_pda_analyzer_core::InteractionType::Create,
+        "close" => solana_pda_analyzer_core::InteractionType::Close,
+        _ => solana_pda_analyzer_core::InteractionType::Read,
     }
 }

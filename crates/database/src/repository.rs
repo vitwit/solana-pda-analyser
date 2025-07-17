@@ -15,10 +15,15 @@ impl DatabaseRepository {
         Self { pool }
     }
 
+    pub async fn from_url(database_url: &str) -> Result<Self> {
+        let pool = PgPool::connect(database_url).await
+            .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
+        Ok(Self::new(pool))
+    }
+
     // Program operations
     pub async fn create_program(&self, request: CreateProgramRequest) -> Result<ProgramRecord> {
-        let record = sqlx::query_as!(
-            ProgramRecord,
+        let record = sqlx::query_as::<_, ProgramRecord>(
             r#"
             INSERT INTO programs (program_id, name, description)
             VALUES ($1, $2, $3)
@@ -28,10 +33,10 @@ impl DatabaseRepository {
                 updated_at = NOW()
             RETURNING id, program_id, name, description, created_at, updated_at
             "#,
-            request.program_id,
-            request.name,
-            request.description
         )
+        .bind(request.program_id)
+        .bind(request.name)
+        .bind(request.description)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
@@ -40,11 +45,10 @@ impl DatabaseRepository {
     }
 
     pub async fn get_program_by_id(&self, program_id: &str) -> Result<Option<ProgramRecord>> {
-        let record = sqlx::query_as!(
-            ProgramRecord,
-            "SELECT id, program_id, name, description, created_at, updated_at FROM programs WHERE program_id = $1",
-            program_id
+        let record = sqlx::query_as::<_, ProgramRecord>(
+            "SELECT id, program_id, name, description, created_at, updated_at FROM programs WHERE program_id = $1"
         )
+        .bind(program_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
@@ -97,8 +101,7 @@ impl DatabaseRepository {
 
     // Transaction operations
     pub async fn create_transaction(&self, request: CreateTransactionRequest) -> Result<TransactionRecord> {
-        let record = sqlx::query_as!(
-            TransactionRecord,
+        let record = sqlx::query_as::<_, TransactionRecord>(
             r#"
             INSERT INTO transactions (signature, slot, block_time, fee, success, error_message)
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -111,13 +114,13 @@ impl DatabaseRepository {
                 updated_at = NOW()
             RETURNING id, signature, slot, block_time, fee, success, error_message, created_at, updated_at
             "#,
-            request.signature,
-            request.slot,
-            request.block_time,
-            request.fee,
-            request.success,
-            request.error_message
         )
+        .bind(request.signature)
+        .bind(request.slot)
+        .bind(request.block_time)
+        .bind(request.fee)
+        .bind(request.success)
+        .bind(request.error_message)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
@@ -126,11 +129,10 @@ impl DatabaseRepository {
     }
 
     pub async fn get_transaction_by_signature(&self, signature: &str) -> Result<Option<TransactionRecord>> {
-        let record = sqlx::query_as!(
-            TransactionRecord,
-            "SELECT id, signature, slot, block_time, fee, success, error_message, created_at, updated_at FROM transactions WHERE signature = $1",
-            signature
+        let record = sqlx::query_as::<_, TransactionRecord>(
+            "SELECT id, signature, slot, block_time, fee, success, error_message, created_at, updated_at FROM transactions WHERE signature = $1"
         )
+        .bind(signature)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
@@ -190,8 +192,7 @@ impl DatabaseRepository {
 
     // PDA operations
     pub async fn create_pda(&self, request: CreatePdaRequest) -> Result<PdaRecord> {
-        let record = sqlx::query_as!(
-            PdaRecord,
+        let record = sqlx::query_as::<_, PdaRecord>(
             r#"
             INSERT INTO pdas (address, program_id, seeds, bump, first_seen_transaction, data_hash)
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -203,13 +204,13 @@ impl DatabaseRepository {
                 updated_at = NOW()
             RETURNING id, address, program_id, seeds, bump, first_seen_transaction, data_hash, created_at, updated_at
             "#,
-            request.address,
-            request.program_id,
-            request.seeds,
-            request.bump,
-            request.first_seen_transaction,
-            request.data_hash
         )
+        .bind(request.address)
+        .bind(request.program_id)
+        .bind(request.seeds)
+        .bind(request.bump)
+        .bind(request.first_seen_transaction)
+        .bind(request.data_hash)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
@@ -218,11 +219,10 @@ impl DatabaseRepository {
     }
 
     pub async fn get_pda_by_address(&self, address: &str) -> Result<Option<PdaRecord>> {
-        let record = sqlx::query_as!(
-            PdaRecord,
-            "SELECT id, address, program_id, seeds, bump, first_seen_transaction, data_hash, created_at, updated_at FROM pdas WHERE address = $1",
-            address
+        let record = sqlx::query_as::<_, PdaRecord>(
+            "SELECT id, address, program_id, seeds, bump, first_seen_transaction, data_hash, created_at, updated_at FROM pdas WHERE address = $1"
         )
+        .bind(address)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
@@ -275,22 +275,21 @@ impl DatabaseRepository {
 
     // Account interaction operations
     pub async fn create_account_interaction(&self, request: CreateAccountInteractionRequest) -> Result<AccountInteractionRecord> {
-        let record = sqlx::query_as!(
-            AccountInteractionRecord,
+        let record = sqlx::query_as::<_, AccountInteractionRecord>(
             r#"
             INSERT INTO account_interactions (transaction_id, pda_id, instruction_index, interaction_type, data_before, data_after, lamports_before, lamports_after)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING id, transaction_id, pda_id, instruction_index, interaction_type, data_before, data_after, lamports_before, lamports_after, created_at
             "#,
-            request.transaction_id,
-            request.pda_id,
-            request.instruction_index,
-            request.interaction_type,
-            request.data_before,
-            request.data_after,
-            request.lamports_before,
-            request.lamports_after
         )
+        .bind(request.transaction_id)
+        .bind(request.pda_id)
+        .bind(request.instruction_index)
+        .bind(request.interaction_type)
+        .bind(request.data_before)
+        .bind(request.data_after)
+        .bind(request.lamports_before)
+        .bind(request.lamports_after)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
@@ -349,8 +348,7 @@ impl DatabaseRepository {
 
     // Statistics and analytics
     pub async fn get_program_stats(&self, program_id: Uuid) -> Result<ProgramStats> {
-        let stats = sqlx::query_as!(
-            ProgramStats,
+        let stats = sqlx::query_as::<_, ProgramStats>(
             r#"
             SELECT 
                 p.id as program_id,
@@ -365,8 +363,8 @@ impl DatabaseRepository {
             WHERE p.id = $1
             GROUP BY p.id
             "#,
-            program_id
         )
+        .bind(program_id)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| PdaAnalyzerError::DatabaseError(e.to_string()))?;
@@ -374,8 +372,12 @@ impl DatabaseRepository {
         Ok(stats)
     }
 
+    pub async fn get_stats(&self) -> Result<DatabaseMetrics> {
+        self.get_database_metrics().await
+    }
+
     pub async fn get_database_metrics(&self) -> Result<DatabaseMetrics> {
-        let metrics = sqlx::query!(
+        let row = sqlx::query(
             r#"
             SELECT 
                 (SELECT COUNT(*) FROM programs) as total_programs,
@@ -393,12 +395,67 @@ impl DatabaseRepository {
         let database_size_mb = 0.0; // In a real implementation, parse the pg_size_pretty output
 
         Ok(DatabaseMetrics {
-            total_programs: metrics.total_programs.unwrap_or(0),
-            total_transactions: metrics.total_transactions.unwrap_or(0),
-            total_pdas: metrics.total_pdas.unwrap_or(0),
-            total_interactions: metrics.total_interactions.unwrap_or(0),
+            total_programs: row.get::<Option<i64>, _>("total_programs").unwrap_or(0),
+            total_transactions: row.get::<Option<i64>, _>("total_transactions").unwrap_or(0),
+            total_pdas: row.get::<Option<i64>, _>("total_pdas").unwrap_or(0),
+            total_interactions: row.get::<Option<i64>, _>("total_interactions").unwrap_or(0),
             database_size_mb,
         })
+    }
+
+    pub async fn get_recent_pdas(&self, limit: i64) -> Result<Vec<PdaRecord>> {
+        let filter = PdaFilter {
+            address: None,
+            program_id: None,
+            limit: Some(limit),
+            offset: None,
+        };
+        self.list_pdas(filter).await
+    }
+
+    pub async fn store_pda_analysis(&self, _analysis: &solana_pda_analyzer_core::PdaAnalysisResult) -> Result<()> {
+        // TODO: Implement storing PDA analysis results
+        Ok(())
+    }
+
+    pub async fn update_program_pda_count(&self, _program_id: &str) -> Result<()> {
+        // TODO: Implement updating program PDA count
+        Ok(())
+    }
+
+    pub async fn get_program(&self, program_id: &str) -> Result<Option<ProgramRecord>> {
+        self.get_program_by_id(program_id).await
+    }
+
+    pub async fn get_programs(&self, filter: ProgramFilter) -> Result<Vec<ProgramRecord>> {
+        self.list_programs(filter).await
+    }
+
+    pub async fn get_pdas_by_program(&self, program_id: &str, limit: i64) -> Result<Vec<PdaRecord>> {
+        // TODO: Convert program_id string to UUID
+        let filter = PdaFilter {
+            address: None,
+            program_id: None, // Should be converted from string to UUID
+            limit: Some(limit),
+            offset: None,
+        };
+        self.list_pdas(filter).await
+    }
+
+    pub async fn get_pdas_by_pattern(&self, _pattern: &str, limit: i64) -> Result<Vec<PdaRecord>> {
+        // TODO: Implement pattern-based PDA search
+        let filter = PdaFilter {
+            address: None,
+            program_id: None,
+            limit: Some(limit),
+            offset: None,
+        };
+        self.list_pdas(filter).await
+    }
+
+    pub async fn migrate(&self) -> Result<()> {
+        // TODO: Implement database migrations
+        Ok(())
     }
 
     // Batch operations
